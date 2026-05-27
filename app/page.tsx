@@ -1,6 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  ensureSession,
+  getOrCreateActiveThread,
+  createNewThread,
+  loadMessages,
+  saveMessage,
+  migrateLocalStorageIfAny,
+} from "@/lib/auth";
 
 type Role = "user" | "assistant";
 type Message = { role: Role; content: string };
@@ -8,26 +16,89 @@ type Message = { role: Role; content: string };
 const STORAGE_KEY = "innerzenith.thread.v1";
 
 export default function Home() {
+  // ─── State ───────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [streamBuffer, setStreamBuffer] = useState("");
   const [hydrated, setHydrated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // feature flags from the server
   const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [persistenceEnabled, setPersistenceEnabled] = useState(false);
+
+  // when persistence is on, we track these
+  const [userId, setUserId] = useState<string | null>(null);
+  const [threadId, setThreadId] = useState<string | null>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
-  // Fetch which features are configured server-side.
+  // ─── Mount: feature detect + hydrate ─────────────────────
   useEffect(() => {
-    fetch("/api/config")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((c) => c && setVoiceEnabled(Boolean(c.voice)))
-      .catch(() => {});
+    (async () => {
+      // 1) ask the server what's configured
+      let cfg = { voice: false, persistence: false };
+      try {
+        const r = await fetch("/api/config");
+        if (r.ok) cfg = await r.json();
+      } catch {}
+      setVoiceEnabled(cfg.voice);
+      setPersistenceEnabled(cfg.persistence);
+
+      if (cfg.persistence) {
+        // ── DB-backed path ─────────────────────────────────
+        const uid = await ensureSession();
+        if (!uid) {
+          // session failed — fall back to localStorage silently
+          await hydrateFromLocalStorage();
+          return;
+        }
+        setUserId(uid);
+
+        const thread = await getOrCreateActiveThread(uid);
+        if (!thread) {
+          await hydrateFromLocalStorage();
+          return;
+        }
+        setThreadId(thread.id);
+
+        // Try to migrate any leftover localStorage conversation into this
+        // first thread, so users coming from before don't lose their history.
+        const existingDbMessages = await loadMessages(thread.id);
+        if (existingDbMessages.length === 0) {
+          const migrated = await migrateLocalStorageIfAny(
+            thread.id,
+            STORAGE_KEY
+          );
+          if (migrated > 0) {
+            // re-fetch so order/ids line up
+            const after = await loadMessages(thread.id);
+            setMessages(after.map(toUiMessage));
+            setHydrated(true);
+            return;
+          }
+        }
+
+        if (existingDbMessages.length > 0) {
+          setMessages(existingDbMessages.map(toUiMessage));
+          setHydrated(true);
+          return;
+        }
+
+        // No history → open the conversation.
+        setHydrated(true);
+        await openConversation(thread.id, uid);
+      } else {
+        // ── localStorage-only path (legacy / unconfigured) ─
+        await hydrateFromLocalStorage();
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load saved thread on mount.
-  useEffect(() => {
+  async function hydrateFromLocalStorage() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -40,19 +111,18 @@ export default function Home() {
       }
     } catch {}
     setHydrated(true);
-    void openConversation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    await openConversation(null, null);
+  }
 
-  // Persist on every change.
+  // ─── Persist when in localStorage mode ───────────────────
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || persistenceEnabled) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
     } catch {}
-  }, [messages, hydrated]);
+  }, [messages, hydrated, persistenceEnabled]);
 
-  // Autoscroll on new content.
+  // ─── Autoscroll / autosize ───────────────────────────────
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
@@ -60,7 +130,6 @@ export default function Home() {
     });
   }, [messages, streamBuffer]);
 
-  // Autosize textarea.
   useEffect(() => {
     const ta = taRef.current;
     if (!ta) return;
@@ -68,8 +137,12 @@ export default function Home() {
     ta.style.height = Math.min(ta.scrollHeight, 240) + "px";
   }, [input]);
 
-  async function openConversation() {
-    await streamReply([{ role: "user", content: "__begin__" }], { hideUser: true });
+  // ─── Conversation actions ────────────────────────────────
+  async function openConversation(tid: string | null, uid: string | null) {
+    await streamReply(
+      [{ role: "user", content: "__begin__" }],
+      { hideUser: true, threadId: tid, userId: uid }
+    );
   }
 
   async function send() {
@@ -78,10 +151,18 @@ export default function Home() {
     const next: Message[] = [...messages, { role: "user", content: text }];
     setMessages(next);
     setInput("");
-    await streamReply(next);
+
+    if (threadId) {
+      await saveMessage(threadId, "user", text);
+    }
+
+    await streamReply(next, { threadId, userId });
   }
 
-  async function streamReply(thread: Message[], opts?: { hideUser?: boolean }) {
+  async function streamReply(
+    thread: Message[],
+    opts?: { hideUser?: boolean; threadId?: string | null; userId?: string | null }
+  ) {
     setStreaming(true);
     setStreamBuffer("");
     setError(null);
@@ -90,7 +171,11 @@ export default function Home() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: thread }),
+        body: JSON.stringify({
+          messages: thread,
+          userId: opts?.userId ?? null,
+          threadId: opts?.threadId ?? null,
+        }),
       });
 
       if (!res.ok || !res.body) {
@@ -114,6 +199,11 @@ export default function Home() {
         : [...thread, { role: "assistant", content: acc }];
       setMessages(final);
       setStreamBuffer("");
+
+      // Persist assistant reply
+      if (opts?.threadId) {
+        await saveMessage(opts.threadId, "assistant", acc);
+      }
     } catch (e: any) {
       setError(e?.message || "Something went quiet. Try once more.");
     } finally {
@@ -121,21 +211,39 @@ export default function Home() {
     }
   }
 
-  function newConversation() {
+  async function newConversation() {
     if (streaming) return;
-    if (!confirm("Start a fresh conversation? This will clear what's here.")) return;
-    localStorage.removeItem(STORAGE_KEY);
-    setMessages([]);
+    if (!confirm("Start a fresh conversation? This will set the current one aside."))
+      return;
+
     setStreamBuffer("");
     setError(null);
-    void openConversation();
+
+    if (persistenceEnabled && userId) {
+      const fresh = await createNewThread(userId);
+      if (fresh) {
+        setThreadId(fresh.id);
+        setMessages([]);
+        await openConversation(fresh.id, userId);
+        return;
+      }
+    }
+
+    // localStorage path
+    localStorage.removeItem(STORAGE_KEY);
+    setMessages([]);
+    await openConversation(null, null);
   }
 
+  // ─── Render ──────────────────────────────────────────────
   return (
     <main className="min-h-screen flex flex-col bg-ink-900 text-ink-100">
       <header className="border-b border-ink-800 px-5 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-ink-300" />
+          <div
+            className={`w-2 h-2 rounded-full ${persistenceEnabled ? "bg-emerald-400" : "bg-ink-300"}`}
+            title={persistenceEnabled ? "saved across devices" : "local only"}
+          />
           <h1 className="font-serif italic text-lg tracking-wide text-ink-100">
             InnerZenith
           </h1>
@@ -149,10 +257,7 @@ export default function Home() {
         </button>
       </header>
 
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 sm:px-8 py-10"
-      >
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
         <div className="max-w-2xl mx-auto space-y-8">
           {messages.length === 0 && !streamBuffer && hydrated && (
             <div className="text-center text-ink-400 italic font-serif pt-20">
@@ -223,6 +328,13 @@ export default function Home() {
       </div>
     </main>
   );
+}
+
+function toUiMessage(m: { role: string; content: string }): Message {
+  return {
+    role: m.role === "assistant" ? "assistant" : "user",
+    content: m.content,
+  };
 }
 
 function MessageBubble({

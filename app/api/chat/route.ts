@@ -4,6 +4,7 @@ import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { fetchChart, chartToContext, EphemerisInput } from "@/lib/ephemeris";
 import { getAdminSupabase } from "@/lib/supabase";
+import { readEnv } from "@/lib/env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -85,7 +86,8 @@ async function buildSystem(
 }
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = readEnv("ANTHROPIC_API_KEY");
+  const modelName = readEnv("ANTHROPIC_MODEL") || "claude-opus-4-5";
   if (!apiKey || apiKey.includes("your-key-here")) {
     return new Response(
       "Missing ANTHROPIC_API_KEY. Add it to .env.local and restart the server.",
@@ -105,7 +107,7 @@ export async function POST(req: NextRequest) {
   }
 
   const system = await buildSystem(body.birth ?? null, body.userId ?? null);
-  const model = process.env.ANTHROPIC_MODEL || "claude-opus-4-5";
+  const model = modelName;
 
   const messages = body.messages.map((m, i) =>
     i === 0 && m.role === "user" && m.content === "__begin__"

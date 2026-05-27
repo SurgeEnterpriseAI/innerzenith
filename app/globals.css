@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  background: #15110a;
+  color: #f4efe7;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.advisor-text {
+  font-family: 'Lora', Georgia, serif;
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  letter-spacing: 0.005em;
+}
+
+.advisor-text p + p {
+  margin-top: 1rem;
+}
+
+/* subtle blinking cursor for streaming */
+.cursor-blink::after {
+  content: '▍';
+  margin-left: 2px;
+  animation: blink 1s steps(1) infinite;
+  opacity: 0.45;
+}
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #3d3424; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #5a4d37; }
+
+textarea {
+  resize: none;
+}

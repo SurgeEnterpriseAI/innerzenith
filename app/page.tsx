@@ -14,8 +14,17 @@ export default function Home() {
   const [streamBuffer, setStreamBuffer] = useState("");
   const [hydrated, setHydrated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+
+  // Fetch which features are configured server-side.
+  useEffect(() => {
+    fetch("/api/config")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => c && setVoiceEnabled(Boolean(c.voice)))
+      .catch(() => {});
+  }, []);
 
   // Load saved thread on mount.
   useEffect(() => {
@@ -31,7 +40,6 @@ export default function Home() {
       }
     } catch {}
     setHydrated(true);
-    // No saved thread → trigger the advisor's opening.
     void openConversation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -153,11 +161,21 @@ export default function Home() {
           )}
 
           {messages.map((m, i) => (
-            <MessageBubble key={i} role={m.role} content={m.content} />
+            <MessageBubble
+              key={i}
+              role={m.role}
+              content={m.content}
+              voiceEnabled={voiceEnabled}
+            />
           ))}
 
           {streaming && streamBuffer && (
-            <MessageBubble role="assistant" content={streamBuffer} streaming />
+            <MessageBubble
+              role="assistant"
+              content={streamBuffer}
+              streaming
+              voiceEnabled={false}
+            />
           )}
 
           {error && (
@@ -211,10 +229,12 @@ function MessageBubble({
   role,
   content,
   streaming,
+  voiceEnabled,
 }: {
   role: Role;
   content: string;
   streaming?: boolean;
+  voiceEnabled: boolean;
 }) {
   if (role === "user") {
     return (
@@ -226,10 +246,61 @@ function MessageBubble({
     );
   }
   return (
-    <div className={`advisor-text text-ink-100 ${streaming ? "cursor-blink" : ""}`}>
-      {content.split(/\n{2,}/).map((para, i) => (
-        <p key={i}>{para}</p>
-      ))}
+    <div className="group">
+      <div
+        className={`advisor-text text-ink-100 ${streaming ? "cursor-blink" : ""}`}
+      >
+        {content.split(/\n{2,}/).map((para, i) => (
+          <p key={i}>{para}</p>
+        ))}
+      </div>
+      {!streaming && voiceEnabled && content.length > 0 && (
+        <PlayButton text={content} />
+      )}
     </div>
+  );
+}
+
+function PlayButton({ text }: { text: string }) {
+  const [state, setState] = useState<"idle" | "loading" | "playing">("idle");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  async function toggle() {
+    if (state === "playing" && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setState("idle");
+      return;
+    }
+    setState("loading");
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text.slice(0, 3000) }),
+      });
+      if (!res.ok) throw new Error("voice unavailable");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => setState("idle");
+      audio.onerror = () => setState("idle");
+      await audio.play();
+      setState("playing");
+    } catch {
+      setState("idle");
+    }
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      className="mt-3 text-[11px] text-ink-400 hover:text-ink-200 transition opacity-0 group-hover:opacity-100 focus:opacity-100"
+    >
+      {state === "idle" && "▷ listen"}
+      {state === "loading" && "… preparing"}
+      {state === "playing" && "■ stop"}
+    </button>
   );
 }

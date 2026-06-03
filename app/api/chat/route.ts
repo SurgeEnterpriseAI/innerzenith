@@ -28,17 +28,27 @@ type ProfileLite = {
 const promptCache: Record<string, { mtime: number; text: string }> = {};
 
 function loadPrompt(file: string, fallback: string): string {
-  const full = path.join(process.cwd(), file);
-  try {
-    const stat = fs.statSync(full);
-    const c = promptCache[file];
-    if (c && c.mtime === stat.mtimeMs) return c.text;
-    const text = fs.readFileSync(full, "utf8");
-    promptCache[file] = { mtime: stat.mtimeMs, text };
-    return text;
-  } catch {
-    return fallback;
+  // Try several locations — process.cwd() on Vercel, and paths relative to
+  // this module — so the prompt loads whether or not the bundler co-locates it.
+  const candidates = [
+    path.join(process.cwd(), file),
+    path.join(process.cwd(), "..", file),
+    path.join(__dirname, file),
+    path.join(__dirname, "..", "..", "..", file),
+  ];
+  for (const full of candidates) {
+    try {
+      const stat = fs.statSync(full);
+      const c = promptCache[full];
+      if (c && c.mtime === stat.mtimeMs) return c.text;
+      const text = fs.readFileSync(full, "utf8");
+      promptCache[full] = { mtime: stat.mtimeMs, text };
+      return text;
+    } catch {
+      // try next candidate
+    }
   }
+  return fallback;
 }
 
 // Stage 7.5 — token-efficient context slice per category.

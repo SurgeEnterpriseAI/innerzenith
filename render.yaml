@@ -1,0 +1,15 @@
+# Render Blueprint for the dotit calculation engine.
+# Render → New → Blueprint → connect SurgeEnterpriseAI/innerzenith → it reads this.
+services:
+  - type: web
+    name: dotit-ephemeris
+    runtime: docker
+    rootDir: ephemeris-service
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore           # closest free region to India
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: EPHEMERIS_SHARED_SECRET
+        sync: false             # set this secret in the Render dashboard

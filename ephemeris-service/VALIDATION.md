@@ -1,0 +1,49 @@
+# Stage 12 — Validation & Testing
+
+The calculation engine must be cross-checked against professional software
+before launch. This file tracks the verification status of each system.
+
+## Reference targets (Stage 12.1)
+
+| System | Reference software | Must match |
+|--------|-------------------|-----------|
+| Vedic / KP | Jagannatha Hora or Kala | Planetary longitudes to 2 decimals |
+| BaZi | Joey Yap BaZi Ming Pan | All four pillars + Ten Gods exactly |
+| Zi Wei | Trusted practitioner chart | Palace placements + major stars |
+| Prashna | Documented historical questions | House assignments + Moon aspects |
+
+## Current status (engine v1.0)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| Time conversion chain | ✅ verified | Historical IANA DST via pytz; LMT/LST via swe |
+| Vedic planetary longitudes | ⏳ needs JH cross-check | Sidereal Lahiri via Swiss Ephemeris (authoritative source) |
+| Vedic Ashtakavarga | ✅ self-consistent | Samudaya total = 337 (classically correct) |
+| Vimshottari dasha | ✅ structurally correct | Balance + MD/AD timeline + current period resolve |
+| Divisional charts | ⏳ needs JH cross-check | D1–D60; general varga rule for D4/D5/D6/D8/etc |
+| Arudha / Chara Karakas | ✅ rule-verified | Two Arudha exception rules implemented; Rahu inversion |
+| Yogas | ✅ logic-verified | Raja/Gaja Kesari/Mahapurusha/Amala/Kuja/KaalSarp/NeechaBhanga/Parivartana |
+| KP sub-lords | ⏳ needs KP cross-check | 243 divisions, separate KP ayanamsha |
+| BaZi year + month pillar | ✅ verified | 1985 = Yi-Chou (Wood Ox); July = Goat month |
+| BaZi day + hour pillar | ⚠ NEEDS CALIBRATION | JDN→stem/branch offset must be anchored to a known reference date |
+| Zi Wei palaces | ⏳ needs cross-check | Life/Body palace + star groups; lunar-day Zi Wei seating simplified |
+| Prashna | ✅ structurally correct | Tajika/Deethi, validity flags, house assignments |
+
+## Calibration TODO before production
+
+1. **BaZi day pillar** — anchor the JDN→sexagenary offset to a verified date
+   (e.g. compare 3–5 known birthdays against Joey Yap's calculator), adjust
+   the `(jdn+9)%10` / `(jdn+1)%12` constants in `engine/bazi.py`.
+2. **Zi Wei Zi-Wei-star seating** — replace the simplified `_ziwei_position`
+   with the full Wu-Ju (五局) table keyed by the Five Element class.
+3. **Divisional charts** — verify D-chart sign rules for D4/D5/D6/D8/D16/D20/
+   D24/D27/D40/D45 against Jagannatha Hora; the classical varga rules vary by
+   source.
+
+## How to run the test client
+
+```
+cd ephemeris-service
+python -m venv .venv && .venv/Scripts/pip install -r requirements.txt httpx
+.venv/Scripts/python -c "from fastapi.testclient import TestClient; import app; ..."
+```

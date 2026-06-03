@@ -1,88 +1,117 @@
-// Calls the Python ephemeris sidecar.
-// Returns the full chart JSON, or null if the sidecar isn't configured.
-// The result is injected into Claude's system context so the model can
-// silently reason over real planetary positions — but the user never
-// sees a single technical term (Rule 1).
+// Calls the dotit Python engine (Railway sidecar).
+// /chart computes the full four-system profile (once, at onboarding).
+// chartToContext compresses the stored profile into a silent context block
+// for Claude — the user never sees any of these terms (Rule 1).
 
 export type EphemerisInput = {
   birth_date: string;          // YYYY-MM-DD
-  birth_time?: string | null;  // HH:MM(:SS)
-  birth_place: string;
+  birth_time?: string | null;  // HH:MM
+  birth_place?: string;
   latitude?: number | null;
   longitude?: number | null;
   timezone?: string | null;
+  gender?: "M" | "F" | null;
+  birth_time_to_minute?: boolean;
 };
 
-export async function fetchChart(input: EphemerisInput): Promise<any | null> {
-  const base = process.env.EPHEMERIS_URL;
-  const secret = process.env.EPHEMERIS_SHARED_SECRET || "";
-  if (!base) return null;
+function base(): string | null {
+  const b = process.env.EPHEMERIS_URL;
+  return b ? b.replace(/\/$/, "") : null;
+}
 
+/** Compute the full profile (onboarding). Returns the stored-profile JSON. */
+export async function computeProfile(input: EphemerisInput): Promise<any | null> {
+  const b = base();
+  if (!b) return null;
   try {
-    const res = await fetch(`${base.replace(/\/$/, "")}/chart`, {
+    const res = await fetch(`${b}/chart`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Ephemeris-Secret": secret,
+        "X-Ephemeris-Secret": process.env.EPHEMERIS_SHARED_SECRET || "",
       },
-      body: JSON.stringify(input),
-      // 8s timeout — chart math is fast; long delays are sidecar trouble.
-      signal: AbortSignal.timeout(8000),
+      body: JSON.stringify({
+        birth_date: input.birth_date,
+        birth_time: input.birth_time ?? null,
+        birth_time_to_minute: input.birth_time_to_minute ?? true,
+        latitude: input.latitude ?? 0,
+        longitude: input.longitude ?? 0,
+        timezone: input.timezone ?? "UTC",
+        gender: input.gender ?? "M",
+      }),
+      signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      console.error("[ephemeris] non-OK:", res.status, body);
+      console.error("[ephemeris] /chart non-OK:", res.status, await res.text().catch(() => ""));
       return null;
     }
     return await res.json();
   } catch (e) {
-    console.error("[ephemeris] fetch failed:", e);
+    console.error("[ephemeris] /chart failed:", e);
     return null;
   }
 }
 
-/** Compact the chart JSON into a focused context block for the model. */
-export function chartToContext(chart: any): string {
-  if (!chart) return "";
-  const vedic = chart.vedic || {};
-  const planets = vedic.planets || {};
-  const planetLines = Object.entries(planets)
-    .map(([name, p]: any) => {
-      return `  ${name}: ${p.sign} ${p.degree_in_sign?.toFixed?.(2) || ""}° (${p.nakshatra} pada ${p.pada}, lord ${p.nakshatra_lord})${p.retrograde ? " [R]" : ""}`;
-    })
-    .join("\n");
+// Back-compat alias used by older callers.
+export const fetchChart = computeProfile;
 
-  const asc = vedic.ascendant || {};
-  const dasha = chart.dasha || {};
-  const nav = chart.navamsha || {};
-  const bazi = chart.bazi || {};
+/** Compress a stored profile into a silent context block for the model. */
+export function chartToContext(profile: any): string {
+  if (!profile) return "";
+  const ck = profile.cache_keys || {};
+  const fidelity = profile.profile_fidelity || "MACRO_ONLY";
+  const snap = ck.active_period_snapshot || {};
+
+  const lines: string[] = [];
+  lines.push(`profile_fidelity: ${fidelity}`);
+  if (ck.core_temperament_style) lines.push(`temperament: ${ck.core_temperament_style}`);
+  if (ck.life_phase_classification) lines.push(`life phase: ${ck.life_phase_classification}`);
+  if (snap.vedic_dasha) lines.push(`active period: ${snap.vedic_dasha}`);
+  if (ck.dominant_bazi_element) lines.push(`dominant element: ${ck.dominant_bazi_element}`);
+  if (ck.elemental_imbalance_flag) lines.push(`imbalance: ${ck.elemental_imbalance_flag}`);
+  if (Array.isArray(ck.favourable_elements) && ck.favourable_elements.length)
+    lines.push(`favourable elements: ${ck.favourable_elements.join(", ")}`);
+  if (Array.isArray(ck.vedic_yoga_strings) && ck.vedic_yoga_strings.length)
+    lines.push(`active patterns: ${ck.vedic_yoga_strings.join("; ")}`);
+  if (ck.sade_sati?.active)
+    lines.push(`a long discipline-cycle is active (${ck.sade_sati.phase} phase)`);
 
   return `
 ---
-INTERNAL CHART CONTEXT (NEVER show terms below to the user — Rule 1)
+INTERNAL PROFILE CONTEXT (silent — NEVER name any system, planet, sign, star,
+pillar, element, or technique to the user; translate to plain language. Rule 1.)
 
-Vedic (sidereal, Lahiri):
-  Ascendant: ${asc.sign} ${asc.degree_in_sign?.toFixed?.(2) || ""}° (${asc.nakshatra} pada ${asc.pada})
-  Planets:
-${planetLines}
+${lines.join("\n")}
 
-Current Vimshottari period:
-  Major: ${dasha.major_lord || "?"} (${dasha.years_into_major || "?"} of ${dasha.major_length_years || "?"} years)
-  Minor: ${dasha.minor_lord || "?"}
-
-Navamsha (D-9):
-  Ascendant: ${nav.ascendant_sign || "?"}
-  Planets: ${Object.entries(nav)
-    .filter(([k]) => k !== "ascendant_sign")
-    .map(([k, v]: any) => `${k}→${v.sign}`)
-    .join(", ")}
-
-BaZi pillars:
-  Day Master: ${bazi.day_master || "?"} (${bazi.day_master_element || "?"})
-  Year: ${bazi.year?.stem}/${bazi.year?.branch}  Month: ${bazi.month?.stem}/${bazi.month?.branch}
-  Day: ${bazi.day?.stem}/${bazi.day?.branch}    Hour: ${bazi.hour?.stem}/${bazi.hour?.branch}
-
-Run the 8-step silent synthesis. Translate to plain warm English. Never name a planet, sign, dasha, nakshatra, pillar, or element. Use the seven rules.
+Run the agree/conflict/translate process. Speak agreements with confidence,
+differences as nuance. Give before you take.
 ---
 `;
+}
+
+/** Ask Now — cast a question-moment chart. */
+export async function castPrashna(input: {
+  moment_iso: string;
+  latitude: number;
+  longitude: number;
+  timezone: string;
+  question_type?: string;
+}): Promise<any | null> {
+  const b = base();
+  if (!b) return null;
+  try {
+    const res = await fetch(`${b}/prashna`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Ephemeris-Secret": process.env.EPHEMERIS_SHARED_SECRET || "",
+      },
+      body: JSON.stringify({ question_type: "general", ...input }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }

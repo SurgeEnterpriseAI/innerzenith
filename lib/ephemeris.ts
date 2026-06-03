@@ -39,7 +39,7 @@ export async function computeProfile(input: EphemerisInput): Promise<any | null>
         timezone: input.timezone ?? "UTC",
         gender: input.gender ?? "M",
       }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(55000), // tolerate Render free-tier cold starts
     });
     if (!res.ok) {
       console.error("[ephemeris] /chart non-OK:", res.status, await res.text().catch(() => ""));
@@ -107,7 +107,7 @@ export async function castPrashna(input: {
         "X-Ephemeris-Secret": process.env.EPHEMERIS_SHARED_SECRET || "",
       },
       body: JSON.stringify({ question_type: "general", ...input }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(55000), // tolerate Render free-tier cold starts
     });
     if (!res.ok) return null;
     return await res.json();

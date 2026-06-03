@@ -1,53 +1,98 @@
-@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
+  /* dotit salt-and-pepper palette (spec 7.1a) */
+  --bg: #2b2b2b;          /* near-black canvas */
+  --text: #ffffff;        /* primary text + dots */
+  --secondary: #d4d4d4;   /* secondary text + labels */
+  --faded: #b3b3b3;       /* faded / inactive */
   color-scheme: dark;
 }
 
 html, body {
-  background: #15110a;
-  color: #f4efe7;
+  background: var(--bg);
+  color: var(--text);
+  height: 100%;
+  overscroll-behavior: none;
 }
 
 body {
   font-family: 'Inter', system-ui, sans-serif;
-  font-feature-settings: "ss01", "cv11";
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
+/* serif italic for the name + reflective lines */
+.font-serif-i {
+  font-family: 'Lora', Georgia, serif;
+  font-style: italic;
+}
+
+/* flowing advisor prose */
 .advisor-text {
   font-family: 'Lora', Georgia, serif;
   font-size: 1.0625rem;
-  line-height: 1.75;
-  letter-spacing: 0.005em;
+  line-height: 1.78;
+  letter-spacing: 0.004em;
+  color: var(--text);
 }
+.advisor-text p + p { margin-top: 1rem; }
 
-.advisor-text p + p {
-  margin-top: 1rem;
-}
-
-/* subtle blinking cursor for streaming */
+/* streaming cursor */
 .cursor-blink::after {
   content: '▍';
   margin-left: 2px;
   animation: blink 1s steps(1) infinite;
-  opacity: 0.45;
+  opacity: 0.4;
 }
-@keyframes blink {
-  50% { opacity: 0; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* a dot that breathes — Surprise Me + onboarding active dot */
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.18); opacity: 1; }
 }
+.dot-breathe { animation: breathe 3.2s ease-in-out infinite; transform-origin: center; }
+
+/* a dot lighting up */
+@keyframes light-up {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+.dot-lit { animation: light-up 0.5s ease-out forwards; }
+
+/* dashed constellation line drawing itself */
+@keyframes draw-line {
+  from { stroke-dashoffset: var(--len); }
+  to { stroke-dashoffset: 0; }
+}
+
+/* gentle fade-up for screen transitions */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fade-up 0.45s ease-out both; }
 
 /* scrollbar */
-::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #3d3424; border-radius: 6px; }
-::-webkit-scrollbar-thumb:hover { background: #5a4d37; }
+::-webkit-scrollbar-thumb { background: #444; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #555; }
 
-textarea {
-  resize: none;
+textarea { resize: none; }
+
+/* remove tap highlight on mobile */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* uppercase micro-label */
+.micro-label {
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--faded);
 }

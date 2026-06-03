@@ -3,7 +3,6 @@ import fs from "node:fs";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { fetchChart, chartToContext, EphemerisInput } from "@/lib/ephemeris";
-import { getAdminSupabase } from "@/lib/supabase";
 import { readEnv } from "@/lib/env";
 
 export const runtime = "nodejs";
@@ -11,83 +10,71 @@ export const dynamic = "force-dynamic";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-let cachedPrompt: { mtime: number; text: string } | null = null;
+type ProfileLite = {
+  full_name?: string | null;
+  gender?: "M" | "F" | null;
+  birth_date?: string | null;
+  birth_time_local?: string | null;
+  birth_time_known?: boolean;
+  birth_time_approximate?: boolean;
+  birth_city?: string | null;
+  birth_lat?: number | null;
+  birth_lng?: number | null;
+  birth_timezone?: string | null;
+  current_city?: string | null;
+  profile_fidelity?: "FULL_METRIC" | "HIGH_PARTIAL" | "MACRO_ONLY";
+};
 
-function loadSystemPrompt(): string {
-  const file = path.join(process.cwd(), "system-prompt.md");
+const promptCache: Record<string, { mtime: number; text: string }> = {};
+
+function loadPrompt(file: string, fallback: string): string {
+  const full = path.join(process.cwd(), file);
   try {
-    const stat = fs.statSync(file);
-    if (cachedPrompt && cachedPrompt.mtime === stat.mtimeMs) {
-      return cachedPrompt.text;
-    }
-    const text = fs.readFileSync(file, "utf8");
-    cachedPrompt = { mtime: stat.mtimeMs, text };
+    const stat = fs.statSync(full);
+    const c = promptCache[file];
+    if (c && c.mtime === stat.mtimeMs) return c.text;
+    const text = fs.readFileSync(full, "utf8");
+    promptCache[file] = { mtime: stat.mtimeMs, text };
     return text;
   } catch {
-    return "You are the InnerZenith Advisor. Be warm, wise, grounded.";
+    return fallback;
   }
 }
 
-async function buildSystem(
-  birth: EphemerisInput | null,
-  userId: string | null
-): Promise<string> {
-  const base = loadSystemPrompt();
+// Stage 7.5 — token-efficient context slice per category.
+const CATEGORY_SLICE: Record<string, string> = {
+  career:
+    "Focus: Career & Purpose. Draw on work, vocation, leadership, money-as-expression, business vs employment, timing, what drains them, the work they were built for.",
+  relationships:
+    "Focus: Relationships. Draw on romantic patterns, friendships, family role, what they seek, what attracts them, what to avoid, repeating patterns, blind spots, healthy love for them specifically.",
+  property:
+    "Focus: Property & Stability. Draw on home, security, timing for property decisions, environments they thrive in, geographical influences.",
+  health:
+    "Focus: Health. Draw on constitutional strengths and vulnerabilities, energy cycles, stress responses, what the body needs now. ALWAYS end with a reminder to consult a medical professional.",
+  money:
+    "Focus: Money & Abundance. Draw on earning patterns, relationship with wealth, what blocks abundance, when it flows naturally.",
+  purpose:
+    "Focus: Life Purpose. Draw on recurring soul themes, what they are here to master, the tension between what they want and what they are built for.",
+  surprise:
+    "Focus: Surprise Me. Open with the single most striking, useful observation about this person's current season — grounded in their active periods and cycles. One arresting insight, not a broad survey.",
+};
 
-  // 1) If birth data was provided in this request, compute fresh chart.
-  if (birth) {
-    const chart = await fetchChart(birth);
-    if (chart) {
-      // Cache it to Supabase for future turns (best-effort, never blocks).
-      if (userId) {
-        const sb = getAdminSupabase();
-        if (sb) {
-          void sb
-            .from("birth_charts")
-            .upsert(
-              {
-                user_id: userId,
-                birth_date: birth.birth_date,
-                birth_time: birth.birth_time || null,
-                birth_time_known: Boolean(birth.birth_time),
-                birth_place: birth.birth_place,
-                latitude: birth.latitude ?? null,
-                longitude: birth.longitude ?? null,
-                timezone: birth.timezone ?? null,
-                chart_json: chart,
-              },
-              { onConflict: "user_id" }
-            );
-        }
-      }
-      return base + "\n\n" + chartToContext(chart);
-    }
-  }
-
-  // 2) Otherwise try to load a previously saved chart from Supabase.
-  if (userId) {
-    const sb = getAdminSupabase();
-    if (sb) {
-      const { data } = await sb
-        .from("birth_charts")
-        .select("chart_json")
-        .eq("user_id", userId)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (data?.chart_json) {
-        return base + "\n\n" + chartToContext(data.chart_json);
-      }
-    }
-  }
-
-  // 3) No chart available — model reasons from raw conversation only.
-  return base;
+function profileContext(p: ProfileLite | null | undefined): string {
+  if (!p) return "";
+  const lines: string[] = [];
+  if (p.full_name) lines.push(`Name: ${p.full_name}`);
+  if (p.gender) lines.push(`Gender: ${p.gender === "M" ? "man" : "woman"}`);
+  if (p.birth_date) lines.push(`Born: ${p.birth_date}${p.birth_time_local ? " " + p.birth_time_local : ""}${p.birth_time_approximate ? " (approx)" : ""}`);
+  if (p.birth_city) lines.push(`Birth place: ${p.birth_city}`);
+  if (p.current_city) lines.push(`Currently in: ${p.current_city}`);
+  if (p.profile_fidelity) lines.push(`profile_fidelity: ${p.profile_fidelity}`);
+  if (!lines.length) return "";
+  return `\n\n--- USER FACTS (never read birth data aloud; never name techniques) ---\n${lines.join("\n")}\n`;
 }
 
 export async function POST(req: NextRequest) {
   const apiKey = readEnv("ANTHROPIC_API_KEY");
-  const modelName = readEnv("ANTHROPIC_MODEL") || "claude-opus-4-5";
+  const model = readEnv("ANTHROPIC_MODEL") || "claude-opus-4-5";
   if (!apiKey || apiKey.includes("your-key-here")) {
     return new Response(
       "Missing ANTHROPIC_API_KEY. Add it to .env.local and restart the server.",
@@ -98,30 +85,71 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as
     | {
         messages?: Msg[];
+        mode?: "natal" | "asknow";
+        category?: string;
+        returning?: boolean;
+        profile?: ProfileLite | null;
         birth?: EphemerisInput | null;
-        userId?: string | null;
       }
     | null;
   if (!body?.messages || !Array.isArray(body.messages)) {
     return new Response("messages array required", { status: 400 });
   }
 
-  const system = await buildSystem(body.birth ?? null, body.userId ?? null);
-  const model = modelName;
+  const mode = body.mode === "asknow" ? "asknow" : "natal";
 
-  const messages = body.messages.map((m, i) =>
-    i === 0 && m.role === "user" && m.content === "__begin__"
-      ? {
-          role: "user" as const,
-          content:
-            "Begin the conversation. Greet the person briefly and warmly, then ask whether they know their exact birth time.",
-        }
-      : m
-  );
+  // Base prompt by mode.
+  let system =
+    mode === "asknow"
+      ? loadPrompt("ask-now-prompt.md", "You are DotIt answering one specific question from the moment it was asked. Be direct, warm, plain.")
+      : loadPrompt("system-prompt.md", "You are DotIt — a warm, grounded life guide. Never name any system or technique.");
+
+  // Category slice (natal only).
+  if (mode === "natal" && body.category && CATEGORY_SLICE[body.category]) {
+    system += "\n\n--- TOPIC SLICE (Stage 7.5) ---\n" + CATEGORY_SLICE[body.category];
+  }
+
+  // Profile facts.
+  system += profileContext(body.profile);
+
+  // Real chart math if a sidecar is configured + we have birth data.
+  if (body.birth && body.birth.birth_date) {
+    try {
+      const chart = await fetchChart(body.birth);
+      if (chart) system += "\n\n" + chartToContext(chart);
+    } catch {}
+  }
+
+  // Opening-turn rewriting: replace sentinels with the right instruction.
+  const messages = body.messages.map((m, i) => {
+    if (i !== 0 || m.role !== "user") return m;
+    if (m.content === "__begin_first__") {
+      return {
+        role: "user" as const,
+        content:
+          "This is the user's FIRST time on this topic. Go broad and deep immediately per the first-time rule — cover every dimension of this topic in flowing prose, then end with the exact blueprint transition sentence.",
+      };
+    }
+    if (m.content === "__begin_returning__") {
+      return {
+        role: "user" as const,
+        content:
+          "The user is RETURNING to this topic. Do not repeat the broad blueprint. Open with: 'Welcome back. What's on your mind today in this area?'",
+      };
+    }
+    if (m.content === "__begin_asknow__") {
+      return {
+        role: "user" as const,
+        content:
+          "The user has submitted one specific question via Ask Now. Answer it directly from the question-moment chart provided. Give before you take.",
+      };
+    }
+    return m;
+  });
 
   const client = new Anthropic({ apiKey });
-
   const encoder = new TextEncoder();
+
   const stream = new ReadableStream({
     async start(controller) {
       try {
@@ -131,7 +159,6 @@ export async function POST(req: NextRequest) {
           max_tokens: 4096,
           messages,
         });
-
         for await (const event of streamResp) {
           if (
             event.type === "content_block_delta" &&
@@ -146,22 +173,16 @@ export async function POST(req: NextRequest) {
         let friendly: string;
         if (status === 401) {
           friendly =
-            "the advisor can't reach its mind right now — the Anthropic API key in .env.local isn't valid. add a real key (from https://console.anthropic.com/settings/keys) and restart the server.";
+            "I can't reach my mind right now — the Anthropic API key isn't valid. Check ANTHROPIC_API_KEY.";
         } else if (status === 429) {
-          friendly =
-            "the advisor is being rate-limited. wait a few seconds and try again.";
+          friendly = "I'm being rate-limited. Give me a few seconds and try again.";
         } else if (status === 529 || status === 503) {
-          friendly =
-            "Anthropic is briefly overloaded. try again in a moment.";
+          friendly = "The service is briefly overloaded. Try again in a moment.";
         } else {
-          const raw =
-            e?.error?.error?.message ||
-            e?.error?.message ||
-            e?.message ||
-            "something went quiet upstream.";
-          friendly = raw;
+          friendly =
+            e?.error?.error?.message || e?.error?.message || e?.message || "Something went quiet.";
         }
-        controller.enqueue(encoder.encode(`\n\n[advisor paused — ${friendly}]`));
+        controller.enqueue(encoder.encode(`\n\n[paused — ${friendly}]`));
         controller.close();
       }
     },

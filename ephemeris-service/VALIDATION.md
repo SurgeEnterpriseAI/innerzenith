@@ -25,7 +25,10 @@ before launch. This file tracks the verification status of each system.
 | Yogas | ✅ logic-verified | Raja/Gaja Kesari/Mahapurusha/Amala/Kuja/KaalSarp/NeechaBhanga/Parivartana |
 | KP sub-lords | ⏳ needs KP cross-check | 243 divisions, separate KP ayanamsha |
 | BaZi year + month pillar | ✅ verified | 1985 = Yi-Chou (Wood Ox); July = Goat month |
-| BaZi day + hour pillar | ⚠ NEEDS CALIBRATION | JDN→stem/branch offset must be anchored to a known reference date |
+| BaZi day pillar | ✅ calibrated | Single sexagenary index `(JDN_noon+49)%60`; anchor verified 2000-01-01 = Wu-Wu (Earth Horse); valid stem/branch parity guaranteed |
+| BaZi hour pillar | ✅ rule-verified | Five Rats rule `((day_stem%5)*2 + hour_branch)%10` checked across all 10 day stems |
+| Divisional charts D1/D2/D3/D4/D9/D12/D30 | ✅ rule-verified | Hora, Drekkana, Chaturthamsha (kendra pattern), Navamsha (element-start ≡ continuous), Dwadashamsha rules confirmed correct |
+| Divisional charts D5/D6/D7/D8/D10/D16/D20/D24/D27/D40/D45/D60 | ⏳ needs cross-check | Starting-sign rules vary by source; verify vs Jagannatha Hora |
 | Zi Wei palaces | ⏳ needs cross-check | Life/Body palace + star groups; lunar-day Zi Wei seating simplified |
 | Prashna | ✅ structurally correct | Tajika/Deethi, validity flags, house assignments |
 

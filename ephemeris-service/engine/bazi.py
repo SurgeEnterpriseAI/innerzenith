@@ -49,13 +49,16 @@ def _solar_month_branch(jd_ut: float) -> int:
     return chosen
 
 
-def _jdn_for_pillar(dt_utc: datetime) -> int:
-    """Continuous day number for day-pillar sexagenary cycle."""
-    a = (14 - dt_utc.month) // 12
-    y = dt_utc.year + 4800 - a
-    m = dt_utc.month + 12 * a - 3
-    return (dt_utc.day + (153 * m + 2) // 5 + 365 * y + y // 4
-            - y // 100 + y // 400 - 32045)
+# Calibrated against the documented anchor 2000-01-01 = Wu-Wu (戊午, Earth
+# Horse) day. The sexagenary day index = (JDN_noon + 49) % 60, where index 0
+# is Jia-Zi. Using a SINGLE index guarantees a valid stem/branch pairing
+# (independent offsets could otherwise yield an impossible combination).
+DAY_PILLAR_JDN_OFFSET = 49
+
+
+def _day_ganzhi_index(day_dt: datetime) -> int:
+    jdn_noon = int(swe.julday(day_dt.year, day_dt.month, day_dt.day, 12.0))
+    return (jdn_noon + DAY_PILLAR_JDN_OFFSET) % 60
 
 
 def four_pillars(tc) -> dict:
@@ -85,10 +88,10 @@ def four_pillars(tc) -> dict:
     tiger_offset = (month_branch_idx - 2) % 12  # months since Tiger
     month_stem_idx = ((year_stem_idx % 5) * 2 + 2 + tiger_offset) % 10
 
-    # ── Day pillar: from continuous JDN (with Late Zi advance).
-    jdn = _jdn_for_pillar(datetime(day_dt.year, day_dt.month, day_dt.day))
-    day_stem_idx = (jdn + 9) % 10   # calibration offset
-    day_branch_idx = (jdn + 1) % 12
+    # ── Day pillar: single sexagenary index (Late-Zi-adjusted day).
+    ganzhi = _day_ganzhi_index(day_dt)
+    day_stem_idx = ganzhi % 10
+    day_branch_idx = ganzhi % 12
 
     # ── Hour pillar (only if time known).
     hour_known = tc.time_known

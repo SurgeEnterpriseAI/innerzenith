@@ -33,6 +33,10 @@ export type Profile = {
   // meta
   created_at: string;
   onboarding_complete: boolean;
+
+  // the full four-system chart, computed ONCE at onboarding and stored
+  // permanently (spec Stage 06). null until/unless the engine is reachable.
+  chart_profile?: any | null;
 };
 
 const KEY = "dotit.profile.v1";
@@ -57,6 +61,7 @@ export function emptyProfile(): Profile {
     profile_fidelity: "MACRO_ONLY",
     created_at: "",
     onboarding_complete: false,
+    chart_profile: null,
   };
 }
 

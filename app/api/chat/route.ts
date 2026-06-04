@@ -99,6 +99,7 @@ export async function POST(req: NextRequest) {
         category?: string;
         returning?: boolean;
         profile?: ProfileLite | null;
+        chartProfile?: any | null;
         birth?: EphemerisInput | null;
       }
     | null;
@@ -122,8 +123,11 @@ export async function POST(req: NextRequest) {
   // Profile facts.
   system += profileContext(body.profile);
 
-  // Real chart math if a sidecar is configured + we have birth data.
-  if (body.birth && body.birth.birth_date) {
+  // Preferred: the chart computed once at onboarding and stored client-side.
+  if (body.chartProfile) {
+    system += "\n\n" + chartToContext(body.chartProfile);
+  } else if (body.birth && body.birth.birth_date) {
+    // Fallback: compute now (only when no stored chart exists).
     try {
       const chart = await fetchChart(body.birth);
       if (chart) system += "\n\n" + chartToContext(chart);

@@ -243,6 +243,8 @@ def _varga_sign_index(lon: float, division: int) -> int:
         return nth_sign(s, [1, 5, 9][part])
     if division == 9:  # Navamsha
         return (s * 9 + part) % 12  # standard continuous navamsha from Aries-start groups
+    if division == 4:  # Chaturthamsha — the four kendras from the sign
+        return nth_sign(s, [1, 4, 7, 10][part])
     if division == 12:  # Dwadashamsha — start from the sign itself
         return nth_sign(s, part + 1)
     if division == 30:  # Trimshamsha — unequal; approximate by 5 parts mapped to signs
@@ -256,7 +258,7 @@ def _varga_sign_index(lon: float, division: int) -> int:
     # General rule for the rest (D4,D5,D6,D7,D8,D10,D16,D20,D24,D27,D40,D45,D60):
     # count `part` signs from a starting sign that depends on the varga.
     starts = {
-        4: s, 5: s, 6: s, 7: (s if s % 2 == 0 else (s + 6) % 12),
+        5: s, 6: s, 7: (s if s % 2 == 0 else (s + 6) % 12),
         8: s, 10: (s if s % 2 == 0 else (s + 8) % 12),
         16: 0, 20: 0, 24: (4 if s % 2 == 0 else 3), 27: 0,
         40: 0, 45: 0, 60: s,

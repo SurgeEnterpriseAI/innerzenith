@@ -36,6 +36,14 @@ export default function Session({
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [buffer, setBuffer] = useState("");
+  const [voiceOn, setVoiceOn] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/config")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => c && setVoiceOn(Boolean(c.voice)))
+      .catch(() => {});
+  }, []);
   const sessionRef = useRef<Sess | null>(existing ?? null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const startedRef = useRef(false);
@@ -91,16 +99,20 @@ export default function Session({
           category,
           returning: !isAskNow && topicSeen(category),
           profile,
-          birth: profile.birth_date
-            ? {
-                birth_date: profile.birth_date,
-                birth_time: profile.birth_time_local,
-                birth_place: profile.birth_city ?? "",
-                latitude: profile.birth_lat,
-                longitude: profile.birth_lng,
-                timezone: profile.birth_timezone,
-              }
-            : null,
+          // Prefer the chart computed once at onboarding (no per-session
+          // recompute / cold start). Fall back to birth data if absent.
+          chartProfile: profile.chart_profile ?? null,
+          birth:
+            !profile.chart_profile && profile.birth_date
+              ? {
+                  birth_date: profile.birth_date,
+                  birth_time: profile.birth_time_local,
+                  birth_place: profile.birth_city ?? "",
+                  latitude: profile.birth_lat,
+                  longitude: profile.birth_lng,
+                  timezone: profile.birth_timezone,
+                }
+              : null,
         }),
       });
       if (!res.ok || !res.body) throw new Error(await res.text().catch(() => "error"));
@@ -149,9 +161,9 @@ export default function Session({
             </p>
           )}
           {messages.map((m, i) => (
-            <Bubble key={i} role={m.role} content={m.content} />
+            <Bubble key={i} role={m.role} content={m.content} voiceOn={voiceOn} />
           ))}
-          {streaming && buffer && <Bubble role="assistant" content={buffer} streaming />}
+          {streaming && buffer && <Bubble role="assistant" content={buffer} streaming voiceOn={false} />}
           {streaming && !buffer && (
             <p className="advisor-text text-[#b3b3b3] italic">reading your dots…</p>
           )}
@@ -187,7 +199,7 @@ export default function Session({
   );
 }
 
-function Bubble({ role, content, streaming }: { role: "user" | "assistant"; content: string; streaming?: boolean }) {
+function Bubble({ role, content, streaming, voiceOn }: { role: "user" | "assistant"; content: string; streaming?: boolean; voiceOn?: boolean }) {
   if (role === "user") {
     return (
       <div className="flex justify-end">
@@ -199,11 +211,55 @@ function Bubble({ role, content, streaming }: { role: "user" | "assistant"; cont
   }
   const clean = stripMarkdown(content);
   return (
-    <div className={`advisor-text ${streaming ? "cursor-blink" : ""}`}>
+    <div className={`advisor-text group ${streaming ? "cursor-blink" : ""}`}>
       {clean.split(/\n{2,}/).map((p, i) => (
         <p key={i}>{p}</p>
       ))}
+      {!streaming && voiceOn && clean.length > 0 && <PlayButton text={clean} />}
     </div>
+  );
+}
+
+function PlayButton({ text }: { text: string }) {
+  const [state, setState] = useState<"idle" | "loading" | "playing">("idle");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  async function toggle() {
+    if (state === "playing" && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setState("idle");
+      return;
+    }
+    setState("loading");
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text.slice(0, 3000) }),
+      });
+      if (!res.ok) throw new Error("voice unavailable");
+      const blob = await res.blob();
+      const audio = new Audio(URL.createObjectURL(blob));
+      audioRef.current = audio;
+      audio.onended = () => setState("idle");
+      audio.onerror = () => setState("idle");
+      await audio.play();
+      setState("playing");
+    } catch {
+      setState("idle");
+    }
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      className="mt-3 text-[11px] text-[#b3b3b3] hover:text-white transition opacity-0 group-hover:opacity-100 focus:opacity-100"
+    >
+      {state === "idle" && "▷ listen"}
+      {state === "loading" && "… preparing"}
+      {state === "playing" && "■ stop"}
+    </button>
   );
 }
 

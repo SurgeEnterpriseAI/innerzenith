@@ -80,7 +80,7 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
     }
   }
 
-  function finish() {
+  async function finish() {
     setConnecting(true);
     const p: Profile = {
       ...emptyProfile(),
@@ -102,9 +102,36 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
       onboarding_complete: true,
     };
     p.profile_fidelity = deriveFidelity(p);
-    saveProfile(p);
-    // "Connecting your dots" beat, then hand off
-    setTimeout(() => onComplete(p), 2600);
+    saveProfile(p); // save immediately so we never lose the user's input
+
+    // Compute the full four-system chart ONCE, now (spec Stage 06). The engine
+    // may cold-start (~30-50s) — the "Connecting your dots" screen covers it.
+    // If it fails/unconfigured, we proceed with profile facts only.
+    const minBeat = new Promise((r) => setTimeout(r, 2600));
+    let chart: any = null;
+    try {
+      const res = await fetch("/api/compute-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          birth: {
+            birth_date: p.birth_date,
+            birth_time: p.birth_time_local,
+            birth_time_to_minute: p.birth_time_known && !p.birth_time_approximate,
+            latitude: p.birth_lat,
+            longitude: p.birth_lng,
+            timezone: p.birth_timezone,
+            gender: p.gender,
+          },
+        }),
+      });
+      if (res.ok) chart = (await res.json()).profile ?? null;
+    } catch {}
+    await minBeat;
+
+    const finalP = { ...p, chart_profile: chart };
+    saveProfile(finalP);
+    onComplete(finalP);
   }
 
   if (connecting) return <ConnectingScreen shape={shapeRef.current} />;

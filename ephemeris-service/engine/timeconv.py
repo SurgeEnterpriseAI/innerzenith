@@ -95,20 +95,20 @@ def ayanamsha(jd_ut: float) -> float:
 
 
 def sunrise_jd(jd_ut: float, lat: float, lon: float) -> Optional[float]:
-    """Classical sunrise — upper limb touching eastern horizon (Stage 2.3).
-    Uses swe.rise_trans. Returns JD(UT) of sunrise on/after the given jd's day.
+    """Classical (Surya Siddhanta) sunrise for special lagnas (Stage 2.3).
+
+    CRITICAL: classical Jyotish measures sunrise from the CENTRE of the Sun's
+    disc and EXCLUDES atmospheric refraction. The Swiss Ephemeris default
+    (upper limb + refraction) is the civil definition and runs 1-3 min early,
+    which corrupts Hora/Ghati Lagna. Pass DISC_CENTER | NO_REFRACTION.
     """
     try:
-        # search from local midnight of that day (approx jd start)
-        start = jd_ut - 0.75
-        res = swe.rise_trans(
-            start, swe.SUN, lon, lat, 0.0,
-            0.0, 0.0,
-            swe.CALC_RISE | swe.BIT_HINDU_RISING,
-        )
-        # res = (retflag, (tret,...))
+        start = jd_ut - 1.0  # search from ~prior midnight
+        rsmi = swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION
+        res = swe.rise_trans(start, swe.SUN, rsmi, (lon, lat, 0.0), 0.0, 0.0,
+                             swe.FLG_SWIEPH)
         if isinstance(res, tuple) and len(res) >= 2 and res[1]:
             return res[1][0]
-    except Exception:
-        pass
+    except Exception as e:
+        print("[sunrise] failed:", e)
     return None

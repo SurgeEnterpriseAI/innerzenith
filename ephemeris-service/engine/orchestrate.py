@@ -48,6 +48,9 @@ def compute_profile(
     v.assign_houses(planets, asc_idx)
     navamsha = v.navamsha_simple(planets, asc_lon)
 
+    birth_dt_naive = tc.local_dt.replace(tzinfo=None)
+    daytime = v.is_daytime_birth(tc) if time_known else True
+
     vedic_block = {
         "ascendant": houses["ascendant"] if time_known else {"note": "requires birth time"},
         "midheaven": houses["midheaven"],
@@ -57,18 +60,25 @@ def compute_profile(
         "divisional_charts": v.divisional_charts(planets, asc_lon, time_known, time_to_minute),
         "navamsha": navamsha,
         "graha_drishti": v.graha_drishti(planets, asc_idx),
+        "rasi_drishti": v.rasi_drishti(),
     }
     if time_known:
+        vedic_block["special_lagnas"] = v.special_lagnas(tc, asc_lon)
+        vedic_block["shadbala"] = v.shadbala(planets, asc_idx, tc)
         vedic_block["arudha_padas"] = v.arudha_padas(planets, asc_idx)
         vedic_block["chara_karakas"] = v.chara_karakas(planets)
         vedic_block["ashtakavarga"] = v.ashtakavarga(planets, asc_idx)
         yogas = v.detect_yogas(planets, asc_idx, vedic_block["functional_nature"], navamsha)
         vedic_block["yogas"] = yogas
-        vedic_block["conditional_dashas"] = v.conditional_dashas(asc_idx, planets)
-        vedic_block["narayana_dasha_d1"] = v.narayana_dasha(asc_idx, planets, tc.local_dt.replace(tzinfo=None))
+        vedic_block["conditional_dashas"] = v.conditional_dashas(asc_idx, planets, daytime)
+        vedic_block["narayana_dasha"] = v.narayana_dasha(asc_idx, planets, birth_dt_naive, navamsha)
+        vedic_block["varshaphala"] = {
+            str(y): v.varshaphala(tc, planets, asc_idx, y) for y in range(now.year, now.year + 2)
+        }
     else:
         yogas = []
         vedic_block["ashtakavarga"] = {"available": False, "reason": "needs birth time"}
+        vedic_block["narayana_dasha"] = v.narayana_dasha(asc_idx, planets, birth_dt_naive, None)
 
     # Vimshottari works from Moon (available even without exact time, less precise)
     dasha = v.vimshottari_dasha(planets["Moon"]["total_degrees"], tc.local_dt.replace(tzinfo=None))

@@ -97,6 +97,47 @@ SPECIAL_ASPECTS = {
 }
 DEFAULT_ASPECT = [7]  # all planets aspect 7th
 
+# Naisargika Bala — natural permanent strength in Virupas (Stage 2.5 Shadbala)
+NAISARGIKA_BALA = {
+    "Sun": 60.0, "Moon": 51.43, "Venus": 42.85, "Jupiter": 34.28,
+    "Mercury": 25.70, "Mars": 17.14, "Saturn": 8.57,
+}
+
+# Rasi Gunakar — sign multipliers for Shodhya Pinda (Stage 2.11)
+RASI_GUNAKAR = {
+    "Aries": 7, "Taurus": 10, "Gemini": 8, "Cancer": 4, "Leo": 10, "Virgo": 5,
+    "Libra": 7, "Scorpio": 8, "Sagittarius": 9, "Capricorn": 5, "Aquarius": 11,
+    "Pisces": 12,
+}
+# Graha Gunakar — planet multipliers for Shodhya Pinda (7 planets; no Rahu/Ketu)
+GRAHA_GUNAKAR = {
+    "Sun": 5, "Moon": 5, "Mars": 8, "Mercury": 5, "Jupiter": 10, "Venus": 7,
+    "Saturn": 5,
+}
+
+# 60 Shashtiamsha (D60) deities in order (BPHS). Applied 0→59 across a sign
+# for odd signs, reversed for even signs (Stage 2.6).
+D60_DEITIES = [
+    "Ghora", "Rakshasa", "Deva", "Kubera", "Yaksha", "Kinnara", "Bhrashta",
+    "Kulaghna", "Garala", "Vahni", "Maya", "Purishaka", "Apampati", "Marutwan",
+    "Kaala", "Sarpa", "Amrita", "Indu", "Mridu", "Komala", "Heramba", "Brahma",
+    "Vishnu", "Maheshwara", "Deva", "Ardra", "Kalinasa", "Kshitisa",
+    "Kamalakara", "Gulika", "Mrityu", "Kaala", "Davagni", "Ghora", "Yama",
+    "Kantaka", "Sudha", "Amrita", "Purnachandra", "Vishadagdha", "Kulanasa",
+    "Vamshakshaya", "Utpata", "Kaala", "Saumya", "Komala", "Sheetala",
+    "Karaladamshtra", "Chandramukha", "Praveena", "Kaalapavaka", "Dandayudha",
+    "Nirmala", "Saumya", "Krura", "Atisheetala", "Amrita", "Payodhi",
+    "Bhramana", "Indurekha",
+]
+
+# Gandanta junctions (Stage 2.2). Rashi Gandanta = last 3°20' of a water sign
+# / first 3°20' of the following fire sign.
+WATER_FIRE_JUNCTIONS = [("Cancer", "Leo"), ("Scorpio", "Sagittarius"),
+                        ("Pisces", "Aries")]
+# Nakshatra Gandanta junction pairs (more intense karmic subset).
+NAKSHATRA_GANDANTA_PAIRS = [("Revati", "Ashwini"), ("Ashlesha", "Magha"),
+                           ("Jyeshtha", "Mula")]
+
 # ─── BaZi sexagenary ───────────────────────────────────────────
 STEMS = ["Jia", "Yi", "Bing", "Ding", "Wu", "Ji", "Geng", "Xin", "Ren", "Gui"]
 STEM_ELEMENT = ["Wood", "Wood", "Fire", "Fire", "Earth", "Earth",

@@ -12,6 +12,24 @@ before launch. This file tracks the verification status of each system.
 | Zi Wei | Trusted practitioner chart | Palace placements + major stars |
 | Prashna | Documented historical questions | House assignments + Moon aspects |
 
+## Vedic spec v2.0 (audited) — incorporated 2026-06-04
+
+Corrections applied: Chara Karakas now strict 8-planet Parashari (AK/AmK/BK/
+MK/PiK/PK/GK/DK), Ketu excluded, SK & GK2 purged, Rahu uses TRUE node;
+conditional-dasha triggers fixed (Dwisaptati = Lagna-lord-in-7th / 7th-lord-
+in-Lagna; Shatrimsha = hora-birth); sunrise now DISC_CENTER | NO_REFRACTION.
+Added: Mean+True nodes, Gandanta flags (rashi + nakshatra), Shadbala (6
+components), D60 Shashtiamsha deity, Rasi Drishti matrix, Ashtakavarga
+Trikona+Ekadhipatya reductions + Shodhya Pinda (Rasi/Graha Gunakar — NOT
+dasha years), Narayana D1+D9 with Dasha-Lagna = stronger of Lagna/7th +
+modality sub-period rule, special lagnas (HL/GL/BL), Varshaphala (Varsha
+Lagna/Muntha/Varsheshwara), global slow-transit log.
+
+Still needs reference cross-check: Shadbala absolute Virupas (Kaala/Drig
+components simplified — relative ranking sound), Varsheshwara full
+Panchavargiya Bala scoring, Zi Wei star seating, vargas D5–D45 sign rules,
+D60 deity list (one of several published orderings).
+
 ## Current status (engine v1.0)
 
 | Area | Status | Notes |

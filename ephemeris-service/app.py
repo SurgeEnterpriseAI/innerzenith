@@ -117,10 +117,14 @@ def prashna(req: PrashnaRequest, x_ephemeris_secret: Optional[str] = Header(None
     """Ask Now — cast a chart for the exact question moment."""
     auth(x_ephemeris_secret)
     try:
-        # parse the device timestamp into local components for the tz
-        dt = datetime.fromisoformat(req.moment_iso.replace("Z", "+00:00"))
         import pytz
-        local = dt.astimezone(pytz.timezone(req.timezone))
+        tz = pytz.timezone(req.timezone)
+        dt = datetime.fromisoformat(req.moment_iso.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            # naive ISO = the moment AS STATED in the question's city/timezone
+            local = dt
+        else:
+            local = dt.astimezone(tz)
         tc = build_time_context(
             local.strftime("%Y-%m-%d"),
             local.strftime("%H:%M:%S"),

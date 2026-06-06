@@ -17,8 +17,7 @@ import BottomNav, { Tab } from "@/components/BottomNav";
 
 type View =
   | { kind: "tab"; tab: Tab }
-  | { kind: "session"; category: CategoryKey; existing?: Sess | null }
-  | { kind: "asknow-session"; question: string; moment: Sess["askMoment"] };
+  | { kind: "session"; category: CategoryKey; existing?: Sess | null };
 
 export default function Page() {
   const [ready, setReady] = useState(false);
@@ -58,27 +57,6 @@ export default function Page() {
       />
     );
   }
-  if (view.kind === "asknow-session") {
-    return (
-      <Session
-        profile={profile}
-        category={"surprise"}
-        isAskNow
-        askMoment={view.moment}
-        existing={{
-          id: "pending",
-          category: "surprise",
-          isAskNow: true,
-          keyword: view.question.slice(0, 40),
-          messages: [{ role: "user", content: view.question }],
-          created_at: new Date().toISOString(),
-          askMoment: view.moment,
-        }}
-        onBack={() => setView({ kind: "tab", tab: "history" })}
-      />
-    );
-  }
-
   // Tab views (with bottom nav)
   const tab = view.tab;
   return (
@@ -90,21 +68,10 @@ export default function Page() {
           onProfile={() => setView({ kind: "tab", tab: "profile" })}
         />
       )}
-      {tab === "asknow" && (
-        <AskNow
-          profile={profile}
-          onAsk={(question, moment) =>
-            setView({ kind: "asknow-session", question, moment })
-          }
-        />
-      )}
+      {tab === "asknow" && <AskNow profile={profile} />}
       {tab === "history" && (
         <History
-          onOpen={(s) =>
-            s.isAskNow
-              ? setView({ kind: "session", category: s.category, existing: s })
-              : setView({ kind: "session", category: s.category, existing: s })
-          }
+          onOpen={(s) => setView({ kind: "session", category: s.category, existing: s })}
         />
       )}
       {tab === "profile" && (

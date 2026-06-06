@@ -89,6 +89,31 @@ differences as nuance. Give before you take.
 `;
 }
 
+/** Geocode a city name → coordinates + IANA timezone (Open-Meteo, no key). */
+export async function geocodeCity(
+  name: string
+): Promise<{ name: string; latitude: number; longitude: number; timezone: string } | null> {
+  try {
+    const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
+    url.searchParams.set("name", name);
+    url.searchParams.set("count", "1");
+    url.searchParams.set("language", "en");
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const r = (data.results || [])[0];
+    if (!r) return null;
+    return {
+      name: [r.name, r.country].filter(Boolean).join(", "),
+      latitude: r.latitude,
+      longitude: r.longitude,
+      timezone: r.timezone || "UTC",
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Ask Now — cast a question-moment chart. */
 export async function castPrashna(input: {
   moment_iso: string;

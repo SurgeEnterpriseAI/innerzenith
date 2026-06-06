@@ -13,6 +13,7 @@ import {
   upsertSession,
   topicSeen,
 } from "@/lib/sessions";
+import { stripMarkdown } from "@/lib/text";
 
 export default function Session({
   profile,
@@ -263,21 +264,3 @@ function PlayButton({ text }: { text: string }) {
   );
 }
 
-// Defensive: the advisor must speak in plain prose. If the model ever slips
-// in markdown, strip it so the user never sees raw # or ** symbols.
-function stripMarkdown(text: string): string {
-  return text
-    .split("\n")
-    .filter((line) => line.trim() !== "---" && line.trim() !== "***")
-    .map((line) =>
-      line
-        .replace(/^#{1,6}\s+/, "")      // headings
-        .replace(/^\s*[-*•]\s+/, "")    // bullets
-        .replace(/^\s*\d+\.\s+/, "")    // numbered list markers
-    )
-    .join("\n")
-    .replace(/\*\*(.+?)\*\*/g, "$1")    // bold
-    .replace(/\*(.+?)\*/g, "$1")        // italics
-    .replace(/__(.+?)__/g, "$1")
-    .replace(/`(.+?)`/g, "$1");         // inline code
-}

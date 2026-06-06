@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
-import { fetchChart, chartToContext, EphemerisInput } from "@/lib/ephemeris";
+import { fetchChart, chartToContext, EphemerisInput, geocodeCity, castPrashna } from "@/lib/ephemeris";
 import { readEnv } from "@/lib/env";
 
 export const runtime = "nodejs";
@@ -82,6 +82,50 @@ function profileContext(p: ProfileLite | null | undefined): string {
   return `\n\n--- USER FACTS (never read birth data aloud; never name techniques) ---\n${lines.join("\n")}\n`;
 }
 
+// Stage 8.3 — pull {question, datetime, city} out of the Ask Now conversation.
+async function extractAskNow(
+  messages: Msg[],
+  apiKey: string,
+  model: string
+): Promise<{
+  question: string | null;
+  datetime_local: string | null;
+  city: string | null;
+  question_type: string | null;
+}> {
+  const convo = messages
+    .filter((m) => !m.content.startsWith("__"))
+    .map((m) => `${m.role}: ${m.content}`)
+    .join("\n");
+  const client = new Anthropic({ apiKey });
+  try {
+    const resp = await client.messages.create({
+      model,
+      max_tokens: 300,
+      system:
+        "Extract Prashna details from the conversation. Return ONLY a JSON object, no prose. " +
+        "Fields: question (the one specific question, or null), datetime_local " +
+        "(the moment the question arrived in the user's mind, as 'YYYY-MM-DDTHH:MM' in 24h, or null if not clearly stated), " +
+        "city (the city the user was in at that moment, or null), question_type " +
+        "(one of: job, marriage, lawsuit, illness, lost_object, travel, general). " +
+        "Only fill a field if the user actually provided it. Do not invent a date/time — 'now' or vague terms are null.",
+      messages: [{ role: "user", content: convo || "(no messages yet)" }],
+    });
+    const text = resp.content
+      .map((b: any) => (b.type === "text" ? b.text : ""))
+      .join("");
+    const json = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    return {
+      question: json.question || null,
+      datetime_local: json.datetime_local || null,
+      city: json.city || null,
+      question_type: json.question_type || "general",
+    };
+  } catch {
+    return { question: null, datetime_local: null, city: null, question_type: "general" };
+  }
+}
+
 export async function POST(req: NextRequest) {
   const apiKey = readEnv("ANTHROPIC_API_KEY");
   const model = readEnv("ANTHROPIC_MODEL") || "claude-opus-4-5";
@@ -123,11 +167,42 @@ export async function POST(req: NextRequest) {
   // Profile facts.
   system += profileContext(body.profile);
 
-  // Preferred: the chart computed once at onboarding and stored client-side.
-  if (body.chartProfile) {
+  if (mode === "asknow") {
+    // Stage 8.3 — extract the three things from the conversation. If all
+    // present, cast the question-moment chart and inject it. If not, the
+    // ask-now prompt makes the model ask for only the missing piece.
+    const extracted = await extractAskNow(body.messages, apiKey, model);
+    if (extracted.question && extracted.datetime_local && extracted.city) {
+      const geo = await geocodeCity(extracted.city);
+      if (geo) {
+        const chart = await castPrashna({
+          moment_iso: extracted.datetime_local, // naive = stated local time
+          latitude: geo.latitude,
+          longitude: geo.longitude,
+          timezone: geo.timezone,
+          question_type: extracted.question_type || "general",
+        });
+        if (chart) {
+          system +=
+            "\n\n--- QUESTION-MOMENT CHART (the three things are all present; answer now) ---\n" +
+            `Question: ${extracted.question}\nMoment: ${extracted.datetime_local} in ${geo.name}\n` +
+            JSON.stringify(chart);
+        }
+      }
+    } else {
+      const missing = [
+        !extracted.question && "the specific question",
+        !extracted.datetime_local && "the exact date and time it arrived in your mind",
+        !extracted.city && "the city you were in at that moment",
+      ].filter(Boolean);
+      system +=
+        "\n\n--- COLLECTION STATE ---\nStill missing: " + missing.join("; ") +
+        ".\nAsk warmly for ONLY the missing piece(s) in one short line. Do not give a reading yet.";
+    }
+  } else if (body.chartProfile) {
+    // Natal — chart computed once at onboarding and stored client-side.
     system += "\n\n" + chartToContext(body.chartProfile);
   } else if (body.birth && body.birth.birth_date) {
-    // Fallback: compute now (only when no stored chart exists).
     try {
       const chart = await fetchChart(body.birth);
       if (chart) system += "\n\n" + chartToContext(chart);

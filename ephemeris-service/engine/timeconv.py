@@ -102,13 +102,22 @@ def sunrise_jd(jd_ut: float, lat: float, lon: float) -> Optional[float]:
     (upper limb + refraction) is the civil definition and runs 1-3 min early,
     which corrupts Hora/Ghati Lagna. Pass DISC_CENTER | NO_REFRACTION.
     """
+    return _rise_set(jd_ut, lat, lon, swe.CALC_RISE)
+
+
+def sunset_jd(jd_ut: float, lat: float, lon: float) -> Optional[float]:
+    """Classical sunset (disc center, no refraction)."""
+    return _rise_set(jd_ut, lat, lon, swe.CALC_SET)
+
+
+def _rise_set(jd_ut: float, lat: float, lon: float, which: int) -> Optional[float]:
     try:
         start = jd_ut - 1.0  # search from ~prior midnight
-        rsmi = swe.CALC_RISE | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION
+        rsmi = which | swe.BIT_DISC_CENTER | swe.BIT_NO_REFRACTION
         res = swe.rise_trans(start, swe.SUN, rsmi, (lon, lat, 0.0), 0.0, 0.0,
                              swe.FLG_SWIEPH)
         if isinstance(res, tuple) and len(res) >= 2 and res[1]:
             return res[1][0]
     except Exception as e:
-        print("[sunrise] failed:", e)
+        print("[rise_set] failed:", e)
     return None

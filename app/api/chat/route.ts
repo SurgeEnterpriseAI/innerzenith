@@ -106,8 +106,10 @@ async function extractAskNow(
         "Extract Prashna details from the conversation. Return ONLY a JSON object, no prose. " +
         "Fields: question (the one specific question, or null), datetime_local " +
         "(the moment the question arrived in the user's mind, as 'YYYY-MM-DDTHH:MM' in 24h, or null if not clearly stated), " +
-        "city (the city the user was in at that moment, or null), question_type " +
-        "(one of: job, marriage, lawsuit, illness, lost_object, travel, general). " +
+        "city (the city the user was in at that moment, or null), question_type. " +
+        "question_type MUST be exactly one of: job, money, gains, relationship, marriage, property, " +
+        "health, body, travel, legal, lost_object, missing_child, missing_sibling, missing_spouse, " +
+        "missing_person, communication, purpose, general. Use 'general' for ambiguous/unclassifiable questions. " +
         "Only fill a field if the user actually provided it. Do not invent a date/time — 'now' or vague terms are null.",
       messages: [{ role: "user", content: convo || "(no messages yet)" }],
     });

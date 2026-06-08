@@ -226,6 +226,76 @@ PRASHNA_HOUSES = {
     "marriage": {"querent": 1, "partner": 7, "union": 11},
 }
 
+# ─── v3 Ask Now (7-layer Prashna) ──────────────────────────────
+# 8.2 Promittor routing — question topic -> house whose lord is the Promittor.
+# Some topics have a secondary house; engine checks both, stronger wins.
+PROMITTOR_HOUSE = {
+    "job": [10], "career": [10], "promotion": [10],
+    "money": [2, 11], "income": [2, 11], "cashflow": [2, 11],
+    "gains": [11, 2], "windfall": [11, 2], "investments": [11, 2],
+    "relationship": [7], "marriage": [7], "partner": [7], "love": [7],
+    "property": [4], "home": [4], "realestate": [4], "stability": [4],
+    "health": [6], "illness": [6], "recovery": [6],
+    "body": [1, 6], "vitality": [1, 6],
+    "travel": [9], "foreign": [9], "relocation": [9],
+    "legal": [7], "lawsuit": [7], "dispute": [7], "court": [7],
+    "lost_object": [2, 4],
+    "missing_child": [5], "missing_sibling": [3], "missing_spouse": [7],
+    "missing_person": [7],
+    "communication": [3], "documents": [3], "agreements": [3],
+    "purpose": [9], "dharma": [9], "life_direction": [9],
+    "general": [],  # ambiguous → open reading (strongest applying aspect)
+}
+
+# 8.5 Sthira Karaka (natural significator) per topic family.
+STHIRA_KARAKA = {
+    "health": ["Sun", "Jupiter"], "illness": ["Sun", "Jupiter"], "recovery": ["Sun", "Jupiter"],
+    "money": ["Jupiter", "Venus"], "investments": ["Jupiter", "Venus"], "gains": ["Jupiter", "Venus"],
+    "legal": ["Mars"], "lawsuit": ["Mars"], "dispute": ["Mars"], "property": ["Mars"],
+    "communication": ["Mercury"], "documents": ["Mercury"],
+    "lost_object": ["Venus"], "love": ["Venus"], "marriage": ["Venus"], "relationship": ["Venus"],
+    "delays": ["Saturn"], "obstacles": ["Saturn"],
+}
+
+# 8.3 Gulika — daytime Mandi Ghati by weekday (Prasna Marga). Python weekday():
+# Mon=0..Sun=6. Values keyed by weekday index.
+MANDI_GHATI_DAY = {6: 26, 0: 22, 1: 18, 2: 14, 3: 10, 4: 6, 5: 2}  # Sun..Sat
+
+# Hora day lord by weekday (Sun..Sat). Python Sunday=6.
+HORA_DAY_LORD = {6: "Sun", 0: "Moon", 1: "Mars", 2: "Mercury",
+                 3: "Jupiter", 4: "Venus", 5: "Saturn"}
+# Descending orbital Hora sequence (circular, modulo-7).
+HORA_SEQUENCE = ["Saturn", "Jupiter", "Mars", "Sun", "Venus", "Mercury", "Moon"]
+
+# 8.3 Drekkana classification by the 12 signs (Ayudha/Jala/Sarpa/Chatushpada/Nara/Pakshi)
+DREKKANA_CLASS = {
+    "Aries": "Chatushpada", "Taurus": "Chatushpada", "Gemini": "Nara",
+    "Cancer": "Jala", "Leo": "Chatushpada", "Virgo": "Nara",
+    "Libra": "Nara", "Scorpio": "Sarpa", "Sagittarius": "Nara",
+    "Capricorn": "Chatushpada", "Aquarius": "Nara", "Pisces": "Jala",
+}
+DREKKANA_MEANING = {
+    "Ayudha": "conflict, aggression, competition — a struggle is active",
+    "Jala": "travel, fluidity, emotional undercurrents, movement across boundaries",
+    "Sarpa": "hidden matters, secrets, concealment, transformation beneath the surface",
+    "Chatushpada": "assets, grounded practical matters, reliable foundations, the physical world",
+    "Nara": "relationships, communication, intellectual matters, people as the central force",
+    "Pakshi": "swift movement, messages arriving, instability, rapid change",
+}
+
+# Natural planetary friendships (Nisarga Mitrata) — for Pancha Mahasutra Adhipati.
+NATURAL_FRIENDS = {
+    "Sun": {"Moon", "Mars", "Jupiter"}, "Moon": {"Sun", "Mercury"},
+    "Mars": {"Sun", "Moon", "Jupiter"}, "Mercury": {"Sun", "Venus"},
+    "Jupiter": {"Sun", "Moon", "Mars"}, "Venus": {"Mercury", "Saturn"},
+    "Saturn": {"Mercury", "Venus"},
+}
+NATURAL_ENEMIES = {
+    "Sun": {"Venus", "Saturn"}, "Moon": set(), "Mars": {"Mercury"},
+    "Mercury": {"Moon"}, "Jupiter": {"Mercury", "Venus"},
+    "Venus": {"Sun", "Moon"}, "Saturn": {"Sun", "Moon", "Mars"},
+}
+
 # KP cuspal interlinks by topic (Stage 3.6)
 KP_INTERLINKS = {
     "marriage": [2, 7, 11],

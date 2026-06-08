@@ -40,12 +40,29 @@ export function upsertSession(s: Session) {
   saveSessions(all);
 }
 
+export function deleteSession(id: string) {
+  saveSessions(loadSessions().filter((s) => s.id !== id));
+}
+
+export function clearAllSessions() {
+  saveSessions([]);
+}
+
 export function newId(): string {
   // avoid Math.random reliance issues — timestamp + counter
   return "s_" + Date.now().toString(36) + "_" + (counter++).toString(36);
 }
 let counter = 0;
 
-export function topicSeen(category: CategoryKey): boolean {
-  return loadSessions().some((s) => s.category === category && !s.isAskNow);
+// A category counts as "seen" (→ skip the broad blueprint) only if there is a
+// prior session for it created AFTER the current chart was computed. When birth
+// details change and the chart is recomputed, sinceISO advances, so every
+// category gives a fresh broad reading again (spec 6.3 "chart memory is reset").
+export function topicSeen(category: CategoryKey, sinceISO?: string | null): boolean {
+  return loadSessions().some(
+    (s) =>
+      s.category === category &&
+      !s.isAskNow &&
+      (!sinceISO || s.created_at >= sinceISO)
+  );
 }

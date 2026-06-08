@@ -1,26 +1,64 @@
 "use client";
 
-// Stage 10 — Profile. Name, birth details (edit → recalc disclaimer),
-// current city, settings. DPDP: data access + delete.
+// Stage 10 — Profile. Name, birth details (focused edit → recalc), current
+// city, history controls, settings, DPDP data delete.
 
-import { Profile, clearProfile } from "@/lib/profile";
+import { useState } from "react";
+import { Profile, clearProfile, saveProfile } from "@/lib/profile";
+import { clearAllSessions } from "@/lib/sessions";
 
 export default function ProfileView({
   profile,
   onEdit,
   onReset,
+  onChange,
 }: {
   profile: Profile;
   onEdit: () => void;
   onReset: () => void;
+  onChange: (p: Profile) => void;
 }) {
+  const [refreshing, setRefreshing] = useState(false);
+
   function deleteAll() {
     if (!confirm("Delete your dotit profile and all sessions on this device? This cannot be undone.")) return;
     clearProfile();
-    try {
-      localStorage.removeItem("dotit.sessions.v1");
-    } catch {}
+    clearAllSessions();
     onReset();
+  }
+
+  function clearHistory() {
+    if (!confirm("Clear all your conversation history? Your profile and chart are kept.")) return;
+    clearAllSessions();
+    alert("History cleared.");
+  }
+
+  async function refreshChart() {
+    setRefreshing(true);
+    try {
+      const res = await fetch("/api/compute-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          birth: {
+            birth_date: profile.birth_date,
+            birth_time: profile.birth_time_local,
+            birth_time_to_minute: profile.birth_time_known && !profile.birth_time_approximate,
+            latitude: profile.birth_lat,
+            longitude: profile.birth_lng,
+            timezone: profile.birth_timezone,
+            gender: profile.gender,
+          },
+        }),
+      });
+      if (res.ok) {
+        const chart = (await res.json()).profile;
+        const updated = { ...profile, chart_profile: chart ?? profile.chart_profile, chart_computed_at: new Date().toISOString() };
+        saveProfile(updated);
+        onChange(updated);
+      }
+    } catch {}
+    setRefreshing(false);
   }
 
   return (
@@ -34,14 +72,21 @@ export default function ProfileView({
         <Row label="Current city" value={profile.current_city ?? "—"} />
         <Row label="Picture fidelity" value={fidelityLabel(profile.profile_fidelity)} />
 
-        <button
-          onClick={onEdit}
-          className="w-full mt-6 border border-white/20 hover:border-white/40 rounded-full py-3 text-sm transition"
-        >
+        <button onClick={onEdit}
+          className="w-full mt-6 border border-white/20 hover:border-white/40 rounded-full py-3 text-sm transition">
           Edit birth details
         </button>
+        <button onClick={refreshChart} disabled={refreshing}
+          className="w-full mt-3 border border-white/15 hover:border-white/30 rounded-full py-3 text-sm text-[#d4d4d4] transition disabled:opacity-50">
+          {refreshing ? "Refreshing your chart…" : "Refresh my chart"}
+        </button>
 
-        <div className="mt-10 pt-6 border-t border-white/10 space-y-4">
+        <div className="mt-10 pt-6 border-t border-white/10 space-y-3">
+          <p className="micro-label">History</p>
+          <button onClick={clearHistory} className="block text-sm text-[#d4d4d4]">Clear all conversation history</button>
+        </div>
+
+        <div className="mt-8 pt-6 border-t border-white/10 space-y-4">
           <p className="micro-label">Settings</p>
           <button className="block text-sm text-[#d4d4d4]">Notifications</button>
           <button className="block text-sm text-[#d4d4d4]">Privacy Policy</button>

@@ -13,11 +13,13 @@ import Session from "@/components/Session";
 import AskNow from "@/components/AskNow";
 import History from "@/components/History";
 import ProfileView from "@/components/ProfileView";
+import ProfileEdit from "@/components/ProfileEdit";
 import BottomNav, { Tab } from "@/components/BottomNav";
 
 type View =
   | { kind: "tab"; tab: Tab }
-  | { kind: "session"; category: CategoryKey; existing?: Sess | null };
+  | { kind: "session"; category: CategoryKey; existing?: Sess | null }
+  | { kind: "edit" };
 
 export default function Page() {
   const [ready, setReady] = useState(false);
@@ -57,6 +59,20 @@ export default function Page() {
       />
     );
   }
+  // Focused birth-details editor (not the full onboarding restart)
+  if (view.kind === "edit") {
+    return (
+      <ProfileEdit
+        profile={profile}
+        onSaved={(p) => {
+          setProfile(p);
+          setView({ kind: "tab", tab: "profile" });
+        }}
+        onCancel={() => setView({ kind: "tab", tab: "profile" })}
+      />
+    );
+  }
+
   // Tab views (with bottom nav)
   const tab = view.tab;
   return (
@@ -77,10 +93,8 @@ export default function Page() {
       {tab === "profile" && (
         <ProfileView
           profile={profile}
-          onEdit={() => {
-            // re-run onboarding to edit (recalc disclaimer lives in spec Phase 7)
-            setProfile({ ...profile, onboarding_complete: false });
-          }}
+          onEdit={() => setView({ kind: "edit" })}
+          onChange={(p) => setProfile(p)}
           onReset={() => {
             setProfile(null);
             setView({ kind: "tab", tab: "home" });

@@ -60,7 +60,7 @@ export default function Session({
     // open the conversation
     const sentinel = isAskNow
       ? "__begin_asknow__"
-      : topicSeen(category)
+      : topicSeen(category, profile.chart_computed_at)
       ? "__begin_returning__"
       : "__begin_first__";
     void stream([{ role: "user", content: sentinel }], { hideOpening: true });
@@ -98,7 +98,7 @@ export default function Session({
           messages: thread,
           mode: isAskNow ? "asknow" : "natal",
           category,
-          returning: !isAskNow && topicSeen(category),
+          returning: !isAskNow && topicSeen(category, profile.chart_computed_at),
           profile,
           // Prefer the chart computed once at onboarding (no per-session
           // recompute / cold start). Fall back to birth data if absent.

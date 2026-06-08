@@ -11,6 +11,7 @@ import {
   deriveFidelity,
   saveProfile,
 } from "@/lib/profile";
+import TimeInput from "./TimeInput";
 
 type GeoPick = {
   name: string;
@@ -129,7 +130,7 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
     } catch {}
     await minBeat;
 
-    const finalP = { ...p, chart_profile: chart };
+    const finalP = { ...p, chart_profile: chart, chart_computed_at: new Date().toISOString() };
     saveProfile(finalP);
     onComplete(finalP);
   }
@@ -184,23 +185,16 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
           <div className="space-y-3">
             <TimeOption active={timeMode === "known"} onClick={() => setTimeMode("known")} label="Yes, I know it" />
             {timeMode === "known" && (
-              <input
-                autoFocus
-                type="time"
-                value={birthTime}
-                onChange={(e) => setBirthTime(e.target.value)}
-                className="bg-transparent border-b border-[#b3b3b3]/40 focus:border-white outline-none text-xl py-2 [color-scheme:dark] w-full"
-              />
+              <div className="py-1">
+                <TimeInput value={birthTime} onChange={setBirthTime} />
+              </div>
             )}
             <TimeOption active={timeMode === "approx"} onClick={() => setTimeMode("approx")} label="Approximate time" />
             {timeMode === "approx" && (
               <>
-                <input
-                  type="time"
-                  value={birthTime}
-                  onChange={(e) => setBirthTime(e.target.value)}
-                  className="bg-transparent border-b border-[#b3b3b3]/40 focus:border-white outline-none text-xl py-2 [color-scheme:dark] w-full"
-                />
+                <div className="py-1">
+                  <TimeInput value={birthTime} onChange={setBirthTime} />
+                </div>
                 <p className="text-[#b3b3b3] text-xs leading-relaxed">
                   Without your birth time some parts of your picture are approximate. As we talk I&#39;ll refine it. You can also explore Ask Now.
                 </p>

@@ -37,6 +37,9 @@ export type Profile = {
   // the full four-system chart, computed ONCE at onboarding and stored
   // permanently (spec Stage 06). null until/unless the engine is reachable.
   chart_profile?: any | null;
+  // when the chart was last computed; advances on birth-detail edits so
+  // category sessions reset to a fresh broad reading (spec 6.3).
+  chart_computed_at?: string | null;
 };
 
 const KEY = "dotit.profile.v1";
@@ -62,6 +65,7 @@ export function emptyProfile(): Profile {
     created_at: "",
     onboarding_complete: false,
     chart_profile: null,
+    chart_computed_at: null,
   };
 }
 

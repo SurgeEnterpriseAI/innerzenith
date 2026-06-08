@@ -66,6 +66,8 @@ export default function AskNow({ profile }: { profile: Profile }) {
           messages: next,
           mode: "asknow",
           profile: { full_name: profile.full_name, current_city: profile.current_city },
+          // Natal chart enters quietly as a second layer (spec 8.10) — never announced.
+          chartProfile: profile.chart_profile ?? null,
         }),
       });
       if (!res.ok || !res.body) throw new Error("error");

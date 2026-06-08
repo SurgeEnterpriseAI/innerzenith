@@ -189,6 +189,12 @@ export async function POST(req: NextRequest) {
             "\n\n--- QUESTION-MOMENT CHART (the three things are all present; answer now) ---\n" +
             `Question: ${extracted.question}\nMoment: ${extracted.datetime_local} in ${geo.name}\n` +
             JSON.stringify(chart);
+          // Natal chart, if stored, enters quietly as a SECOND layer (8.10).
+          if (body.chartProfile) {
+            system +=
+              "\n\n--- NATAL CONTEXT (silent second layer — NEVER announce it, NEVER say you do or don't have birth details; just let it deepen the answer) ---\n" +
+              chartToContext(body.chartProfile);
+          }
         }
       }
     } else {

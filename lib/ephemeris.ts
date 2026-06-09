@@ -76,17 +76,65 @@ export function chartToContext(profile: any): string {
   if (ck.sade_sati?.active)
     lines.push(`a long discipline-cycle is active (${ck.sade_sati.phase} phase)`);
 
+  // ── ACTUAL PERIOD DATES (resolved live against today from the stored
+  // timeline — spec 2.12 session-open query, so it never goes stale) ──
+  const timing: string[] = [];
+  const cur = resolveCurrentPeriods(profile);
+  if (cur.maha_end)
+    timing.push(`current major life-period runs until ${cur.maha_end}`);
+  if (cur.antar_end)
+    timing.push(`current sub-period (the present "flavour" of the major period) runs until ${cur.antar_end}`);
+  if (cur.next_antar_start)
+    timing.push(`the next sub-period begins ${cur.next_antar_start}`);
+  // Varshaphala theme for the current solar year, if present
+  const vyears = profile.vedic?.varshaphala;
+  if (vyears && typeof vyears === "object") {
+    const y = Object.keys(vyears)[0];
+    if (y) timing.push(`this solar year's centre of gravity is shaped by ${vyears[y]?.varsheshwara ?? "—"} themes`);
+  }
+
+  const timingBlock = timing.length
+    ? `\n\nTIMING WINDOWS (real dates — when the user asks "when", "how long", "what dates", or "until when", translate these into a concrete plain-language month/year window, e.g. "this stretch runs until around March 2027". NEVER name a planet/period/system. Do NOT say "I can't give precise dates" — you have them here.)\n` +
+      timing.map((t) => "  - " + t).join("\n")
+    : "";
+
   return `
 ---
 INTERNAL PROFILE CONTEXT (silent — NEVER name any system, planet, sign, star,
 pillar, element, or technique to the user; translate to plain language. Rule 1.)
 
-${lines.join("\n")}
+${lines.join("\n")}${timingBlock}
 
 Run the agree/conflict/translate process. Speak agreements with confidence,
 differences as nuance. Give before you take.
 ---
 `;
+}
+
+/** Resolve current major/sub period live from the stored Vimshottari timeline
+ *  against today's date (spec 2.12 — a date-range lookup, not a recompute). */
+function resolveCurrentPeriods(profile: any): {
+  maha?: string; maha_end?: string; antar?: string; antar_end?: string; next_antar_start?: string;
+} {
+  const timeline = profile?.vedic?.vimshottari?.timeline;
+  if (!Array.isArray(timeline)) return {};
+  const today = new Date().toISOString().slice(0, 10);
+  for (const md of timeline) {
+    if (md.start <= today && today < md.end) {
+      const out: any = { maha: md.maha_lord, maha_end: md.end };
+      const ads = md.antardashas || [];
+      for (let i = 0; i < ads.length; i++) {
+        if (ads[i].start <= today && today < ads[i].end) {
+          out.antar = ads[i].lord;
+          out.antar_end = ads[i].end;
+          if (i + 1 < ads.length) out.next_antar_start = ads[i + 1].start;
+          break;
+        }
+      }
+      return out;
+    }
+  }
+  return {};
 }
 
 /** Geocode a city name → coordinates + IANA timezone (Open-Meteo, no key). */

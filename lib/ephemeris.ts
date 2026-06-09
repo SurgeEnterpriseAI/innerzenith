@@ -56,7 +56,7 @@ export async function computeProfile(input: EphemerisInput): Promise<any | null>
 export const fetchChart = computeProfile;
 
 /** Compress a stored profile into a silent context block for the model. */
-export function chartToContext(profile: any): string {
+export function chartToContext(profile: any, currentCity?: string | null): string {
   if (!profile) return "";
   const ck = profile.cache_keys || {};
   const fidelity = profile.profile_fidelity || "MACRO_ONLY";
@@ -98,8 +98,20 @@ export function chartToContext(profile: any): string {
       timing.map((t) => "  - " + t).join("\n")
     : "";
 
+  // SYSTEM REALITY (spec 7.5.a) — injected at the very top of every session
+  // so the advisor is always grounded in today's date + the user's location.
+  const today = new Date();
+  const dateStr = today.toLocaleDateString("en-GB", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+  });
+  const cityStr = currentCity ? ` The user is currently located in ${currentCity}.` : "";
+
   return `
 ---
+SYSTEM REALITY: Today's date is ${dateStr}.${cityStr}
+Use this as the anchor for every timing statement — never say you don't know
+the date, and translate stored period dates into concrete windows from today.
+
 INTERNAL PROFILE CONTEXT (silent — NEVER name any system, planet, sign, star,
 pillar, element, or technique to the user; translate to plain language. Rule 1.)
 
@@ -109,6 +121,49 @@ Run the agree/conflict/translate process. Speak agreements with confidence,
 differences as nuance. Give before you take.
 ---
 `;
+}
+
+/** Dynamic Time-Drilldown (spec 7.5.f): if the conversation mentions a
+ *  specific year, retrieve that year's periods from the stored chart and
+ *  inject them (retrieval only — no recompute). */
+export function timeDrilldown(profile: any, conversationText: string): string {
+  const years = (conversationText.match(/\b(20[2-4]\d)\b/g) || [])
+    .map(Number)
+    .filter((y) => y >= 2015 && y <= 2045);
+  if (!years.length) return "";
+  const year = years[years.length - 1]; // most recently mentioned
+  const ymid = `${year}-07-01`;
+  const out: string[] = [];
+
+  // Vimshottari MD/AD active in that year
+  const tl = profile?.vedic?.vimshottari?.timeline;
+  if (Array.isArray(tl)) {
+    for (const md of tl) {
+      if (md.start <= ymid && ymid < md.end) {
+        let ad = "";
+        for (const a of md.antardashas || []) {
+          if (a.start <= ymid && ymid < a.end) { ad = ` / sub-period until ${a.end}`; break; }
+        }
+        out.push(`in ${year}, the major life-period runs ${md.start}→${md.end}${ad}`);
+        break;
+      }
+    }
+  }
+  // Narayana D1 sign active that year
+  const nd = profile?.vedic?.narayana_dasha?.d1;
+  if (Array.isArray(nd)) {
+    for (const p of nd) {
+      if (p.start <= ymid && ymid < p.end) { out.push(`environment-period theme that year carries a ${p.sign}-flavour`); break; }
+    }
+  }
+  // BaZi annual pillar (computable)
+  const STEMS = ["Jia","Yi","Bing","Ding","Wu","Ji","Geng","Xin","Ren","Gui"];
+  const ANIM = ["Rat","Ox","Tiger","Rabbit","Dragon","Snake","Horse","Goat","Monkey","Rooster","Dog","Pig"];
+  out.push(`that year's annual cycle is a ${STEMS[(year-4)%10]} ${ANIM[(year-4)%12]} year`);
+
+  if (!out.length) return "";
+  return `\n\n--- TIME DRILLDOWN for ${year} (retrieval; translate to plain windows, no system names) ---\n` +
+    out.map((o) => "  - " + o).join("\n");
 }
 
 /** Resolve current major/sub period live from the stored Vimshottari timeline
@@ -135,6 +190,86 @@ function resolveCurrentPeriods(profile: any): {
     }
   }
   return {};
+}
+
+/** Global "now" snapshot for the Surprise Me micro layer. */
+export async function fetchToday(): Promise<any | null> {
+  const b = base();
+  if (!b) return null;
+  try {
+    const res = await fetch(`${b}/today`, {
+      headers: { "X-Ephemeris-Secret": process.env.EPHEMERIS_SHARED_SECRET || "" },
+      signal: AbortSignal.timeout(55000),
+    });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Build the Surprise Me two-layer context (spec 7.5 Surprise Me row). */
+export function buildSurpriseContext(
+  profile: any,
+  birthDate: string | null,
+  birthTimeKnown: boolean,
+  today: any | null
+): string {
+  const cur = resolveCurrentPeriods(profile);
+  const age = birthDate
+    ? Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 864e5))
+    : null;
+
+  // BaZi current luck pillar (by age) + Ten God
+  let luck: any = null;
+  const lp = profile?.bazi?.luck_pillars?.pillars;
+  if (Array.isArray(lp) && age != null)
+    luck = lp.find((p: any) => p.from_age <= age && age < p.to_age) || null;
+
+  // Zi Wei current Da Xian (by age)
+  let daxian: any = null;
+  const dx = profile?.ziwei?.da_xian?.periods;
+  if (Array.isArray(dx) && age != null)
+    daxian = dx.find((p: any) => p.from_age <= age && age <= p.to_age) || null;
+
+  // Narayana D1 current sign (by date)
+  let narayana: string | null = null;
+  const nd = profile?.vedic?.narayana_dasha?.d1;
+  const todayISO = new Date().toISOString().slice(0, 10);
+  if (Array.isArray(nd))
+    narayana = (nd.find((p: any) => p.start <= todayISO && todayISO < p.end) || {}).sign || null;
+
+  const dom: string[] = [];
+  if (cur.maha) dom.push(`major life-period: ${cur.maha} (until ${cur.maha_end})`);
+  if (cur.antar) dom.push(`current sub-period: ${cur.antar} (until ${cur.antar_end})`);
+  if (luck) dom.push(`current 10-yr luck pillar: ${luck.stem} ${luck.animal} (${luck.stem_element})`);
+  if (daxian) dom.push(`current 10-yr palace: ${daxian.palace} [${(daxian.stars || []).join(", ")}]`);
+  if (narayana) dom.push(`environment-period sign: ${narayana}`);
+
+  const micro: string[] = [];
+  if (today?.moon_sign) micro.push(`today the Moon sits in ${today.moon_sign} (${today.moon_nakshatra})`);
+  if (today?.day_lord) micro.push(`today's day-energy: ${today.day_lord}`);
+  if (today?.bazi_year_pillar) micro.push(`this year: ${today.bazi_year_pillar.stem} ${today.bazi_year_pillar.animal}`);
+
+  const noTime = !birthTimeKnown;
+
+  return `
+--- SURPRISE ME (two-layer, generated fresh today) ---
+Write ONE continuous, flowing response — never label or separate the layers.
+Open with the DOMINANT SITUATION (about 70–90 words): the large current chapter
+of their life, where the long cycles converge. Then let it narrow, in a natural
+sentence (no heading), into TODAY (about 40–60 words): the texture of this
+specific day. No technical terms, no system names — plain, hyper-specific prose.
+${noTime ? "(No birth time: lean on the major life-period + today's broad sky only; keep fine timing soft.)" : ""}
+
+DOMINANT SITUATION inputs:
+${dom.map((d) => "  - " + d).join("\n") || "  - (limited data)"}
+
+TODAY inputs:
+${micro.map((m) => "  - " + m).join("\n") || "  - (limited data)"}
+
+Where these inputs converge on one theme, speak with quiet certainty.
+End on a single grounded line about how to meet today — not a question.
+`;
 }
 
 /** Geocode a city name → coordinates + IANA timezone (Open-Meteo, no key). */

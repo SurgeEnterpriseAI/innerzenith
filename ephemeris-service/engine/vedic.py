@@ -762,15 +762,16 @@ def _sign_strength(sign_idx: int, planets: dict) -> float:
     return occupants + natural
 
 
+# Odd signs (Aries, Gemini, Leo, Libra, Sagittarius, Aquarius) — 0-indexed even.
+ODD_SIGNS = {"Aries", "Gemini", "Leo", "Libra", "Sagittarius", "Aquarius"}
+
+
 def _narayana_from(dasha_lagna_idx: int, planets: dict, birth_dt: datetime,
                    span_years: int) -> list:
+    # Mahadasha sequence direction (v4): forward if the Dasha Lagna sign is ODD,
+    # backward if EVEN.
     lagna_sign = SIGNS[dasha_lagna_idx]
-    mod = MODALITY[lagna_sign]
-    forward = mod == "movable"
-    if mod == "dual":
-        lord = SIGN_LORDS[lagna_sign]
-        lord_sign = sign_of(planets[lord]["total_degrees"]) if lord in planets else lagna_sign
-        forward = MODALITY[lord_sign] != "fixed"
+    forward = lagna_sign in ODD_SIGNS
     timeline = []
     cursor = birth_dt
     for i in range(12):
@@ -784,6 +785,7 @@ def _narayana_from(dasha_lagna_idx: int, planets: dict, birth_dt: datetime,
             "sign": sgn, "sign_lord": lord,
             "direction": "forward" if forward else "reverse",
             "sub_period_rule": _narayana_subrule(sgn),
+            "antardasha_sequence": _narayana_antardashas(sidx, planets),
             "start": cursor.date().isoformat(),
             "end": _add_years(cursor, years).date().isoformat(),
         })
@@ -791,6 +793,22 @@ def _narayana_from(dasha_lagna_idx: int, planets: dict, birth_dt: datetime,
         if (cursor - birth_dt).days > span_years * 365.25:
             break
     return timeline
+
+
+def _narayana_antardashas(dasha_sign_idx: int, planets: dict) -> list:
+    """12 antardashas (one per sign). Start = sign occupied by the lord of the
+    stronger of (dasha sign, 7th from it). Direction: odd start → forward,
+    even start → backward (v4 spec)."""
+    seventh = nth_sign(dasha_sign_idx, 7)
+    start_sign = dasha_sign_idx if _sign_strength(dasha_sign_idx, planets) >= _sign_strength(seventh, planets) else seventh
+    lord = SIGN_LORDS[SIGNS[start_sign]]
+    first = sign_index(planets[lord]["total_degrees"]) if lord in planets else start_sign
+    forward = SIGNS[first] in ODD_SIGNS
+    seq = []
+    for i in range(12):
+        sidx = (first + i) % 12 if forward else (first - i) % 12
+        seq.append(SIGNS[sidx])
+    return seq
 
 
 def _narayana_subrule(sign: str) -> str:

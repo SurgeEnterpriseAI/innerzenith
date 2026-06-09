@@ -460,16 +460,16 @@ def _layer6_timing(layer4, sp, planets, moon, lagna_modality, layer3):
         anchor = "Moon_to_P"
         delta = _orb(moon, planets[P]["lon"]) if P in planets else 0
 
-    # modality multiplier
+    # modality multiplier (v4 — base scale only; Sthira adjustment is an AI
+    # synthesis note, not a hardcoded sub-modifier)
     if lagna_modality == "movable":
         scale, unit = "days", "1° = 1 day"
-        # slow Sthira karaka → weeks
-        if any(k in ("Saturn", "Jupiter") for k in layer3.get("sthira_karakas", [])):
-            scale = "weeks"
     elif lagna_modality == "dual":
         scale, unit = "weeks", "1° = 1 week"
     else:
         scale, unit = "months", "1° = 1 month"
+
+    slow_sthira = any(k in ("Saturn", "Jupiter") for k in layer3.get("sthira_karakas", []))
 
     return {
         "degree_delta": round(delta, 2),
@@ -477,6 +477,10 @@ def _layer6_timing(layer4, sp, planets, moon, lagna_modality, layer3):
         "time_scale": scale,
         "estimated_units": round(delta, 1),
         "rule": unit,
+        # AI cross-references: if the matter involves a slow/entrenched theme,
+        # widen the framing (days→weeks, weeks→months) rather than taking the
+        # raw number literally.
+        "sthira_is_slow": slow_sthira,
     }
 
 

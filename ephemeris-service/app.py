@@ -112,6 +112,37 @@ def context(req: ContextRequest, x_ephemeris_secret: Optional[str] = Header(None
     return ck.context_slice(req.profile, req.category)
 
 
+@app.get("/today")
+def today(x_ephemeris_secret: Optional[str] = Header(None)):
+    """Global 'now' snapshot for the Surprise Me micro layer (no birth data):
+    today's Moon sign + nakshatra, the weekday (KP) day lord, and the BaZi
+    annual pillar. Shared across all users."""
+    auth(x_ephemeris_secret)
+    import swisseph as swe
+    from engine.vedic import sign_of, nakshatra_of, norm360
+    from engine.constants import STEMS, BRANCHES, BRANCH_ANIMAL
+    now = datetime.now(timezone.utc)
+    jd = swe.julday(now.year, now.month, now.day,
+                    now.hour + now.minute / 60.0)
+    swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
+    mpos, _ = swe.calc_ut(jd, swe.MOON, swe.FLG_SIDEREAL)
+    mlon = norm360(mpos[0])
+    naksh, pada, nlord, _, _ = nakshatra_of(mlon)
+    day_lords = {0: "Moon", 1: "Mars", 2: "Mercury", 3: "Jupiter",
+                 4: "Venus", 5: "Saturn", 6: "Sun"}  # Mon..Sun
+    ystem = STEMS[(now.year - 4) % 10]
+    ybranch = BRANCHES[(now.year - 4) % 12]
+    yanimal = BRANCH_ANIMAL[(now.year - 4) % 12]
+    return {
+        "date": now.date().isoformat(),
+        "moon_sign": sign_of(mlon),
+        "moon_nakshatra": naksh,
+        "moon_nakshatra_lord": nlord,
+        "day_lord": day_lords[now.weekday()],
+        "bazi_year_pillar": {"stem": ystem, "branch": ybranch, "animal": yanimal},
+    }
+
+
 @app.post("/prashna")
 def prashna(req: PrashnaRequest, x_ephemeris_secret: Optional[str] = Header(None)):
     """Ask Now — cast a chart for the exact question moment."""

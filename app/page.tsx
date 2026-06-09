@@ -14,11 +14,13 @@ import AskNow from "@/components/AskNow";
 import History from "@/components/History";
 import ProfileView from "@/components/ProfileView";
 import ProfileEdit from "@/components/ProfileEdit";
+import SurpriseMe from "@/components/SurpriseMe";
 import BottomNav, { Tab } from "@/components/BottomNav";
 
 type View =
   | { kind: "tab"; tab: Tab }
   | { kind: "session"; category: CategoryKey; existing?: Sess | null }
+  | { kind: "surprise" }
   | { kind: "edit" };
 
 export default function Page() {
@@ -59,6 +61,11 @@ export default function Page() {
       />
     );
   }
+  // Surprise Me — full-screen, once-per-day
+  if (view.kind === "surprise") {
+    return <SurpriseMe profile={profile} onBack={() => setView({ kind: "tab", tab: "home" })} />;
+  }
+
   // Focused birth-details editor (not the full onboarding restart)
   if (view.kind === "edit") {
     return (
@@ -80,7 +87,11 @@ export default function Page() {
       {tab === "home" && (
         <Home
           profile={profile}
-          onPick={(key) => setView({ kind: "session", category: key })}
+          onPick={(key) =>
+            key === "surprise"
+              ? setView({ kind: "surprise" })
+              : setView({ kind: "session", category: key })
+          }
           onProfile={() => setView({ kind: "tab", tab: "profile" })}
         />
       )}

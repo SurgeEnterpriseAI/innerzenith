@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
-import { fetchChart, chartToContext, EphemerisInput, geocodeCity, castPrashna } from "@/lib/ephemeris";
+import { fetchChart, chartToContext, timeDrilldown, EphemerisInput, geocodeCity, castPrashna, fetchToday, buildSurpriseContext } from "@/lib/ephemeris";
 import { readEnv } from "@/lib/env";
 
 export const runtime = "nodejs";
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as
     | {
         messages?: Msg[];
-        mode?: "natal" | "asknow";
+        mode?: "natal" | "asknow" | "surprise";
         category?: string;
         returning?: boolean;
         profile?: ProfileLite | null;
@@ -153,9 +153,10 @@ export async function POST(req: NextRequest) {
     return new Response("messages array required", { status: 400 });
   }
 
-  const mode = body.mode === "asknow" ? "asknow" : "natal";
+  const mode =
+    body.mode === "asknow" ? "asknow" : body.mode === "surprise" ? "surprise" : "natal";
 
-  // Base prompt by mode.
+  // Base prompt by mode (Surprise Me uses the natal brain + a special directive).
   let system =
     mode === "asknow"
       ? loadPrompt("ask-now-prompt.md", "You are DotIt answering one specific question from the moment it was asked. Be direct, warm, plain.")
@@ -169,7 +170,19 @@ export async function POST(req: NextRequest) {
   // Profile facts.
   system += profileContext(body.profile);
 
-  if (mode === "asknow") {
+  if (mode === "surprise") {
+    // Surprise Me — two-layer reading from the stored chart + today's sky.
+    if (body.chartProfile) {
+      system += "\n\n" + chartToContext(body.chartProfile, body.profile?.current_city);
+      const today = await fetchToday();
+      system += "\n\n" + buildSurpriseContext(
+        body.chartProfile,
+        body.profile?.birth_date ?? null,
+        Boolean(body.profile?.birth_time_known),
+        today
+      );
+    }
+  } else if (mode === "asknow") {
     // Stage 8.3 — extract the three things from the conversation. If all
     // present, cast the question-moment chart and inject it. If not, the
     // ask-now prompt makes the model ask for only the missing piece.
@@ -209,11 +222,14 @@ export async function POST(req: NextRequest) {
     }
   } else if (body.chartProfile) {
     // Natal — chart computed once at onboarding and stored client-side.
-    system += "\n\n" + chartToContext(body.chartProfile);
+    system += "\n\n" + chartToContext(body.chartProfile, body.profile?.current_city);
+    // Dynamic time-drilldown: if the conversation mentions a year, append it.
+    const convoText = body.messages.map((m) => m.content).join(" ");
+    system += timeDrilldown(body.chartProfile, convoText);
   } else if (body.birth && body.birth.birth_date) {
     try {
       const chart = await fetchChart(body.birth);
-      if (chart) system += "\n\n" + chartToContext(chart);
+      if (chart) system += "\n\n" + chartToContext(chart, body.profile?.current_city);
     } catch {}
   }
 
@@ -239,6 +255,13 @@ export async function POST(req: NextRequest) {
         role: "user" as const,
         content:
           "The user has submitted one specific question via Ask Now. Answer it directly from the question-moment chart provided. Give before you take.",
+      };
+    }
+    if (m.content === "__begin_surprise__") {
+      return {
+        role: "user" as const,
+        content:
+          "Generate today's Surprise Me reading from the two-layer context provided. One continuous flowing response — dominant situation that narrows into today. No labels, no headings, no technical terms.",
       };
     }
     return m;

@@ -123,16 +123,20 @@ def prashna_chart(tc, question_type: str = "general") -> dict:
 
 
 def _notable_signals(planets: dict, sp: dict, moon: float) -> dict:
-    """Surface the single loudest thing in the chart so the AI can name it:
-    the tightest contact to the Significator, and any exalted/benefic
-    conjunction to S (e.g. an opportunity 'forming' = benefic on the querent)."""
+    """Surface the single loudest thing in the chart so the AI can name it.
+    Crucially, gives the AI the INTERPRETATION, not just the raw contact:
+    a benefic (especially exalted) conjunct the querent's significator = a
+    genuine opportunity forming right alongside them."""
+    from .constants import EXALTATION
     S = sp.get("S")
-    out = {"tightest_contact_to_S": None, "benefic_contacts_to_S": [], "exact_conjunctions": []}
+    out = {"tightest_contact_to_S": None, "benefic_contacts_to_S": [],
+           "exact_conjunctions": [], "opportunity_forming": None}
     if S not in planets:
         return out
     s_lon = planets[S]["lon"]
     benefics = {"Jupiter", "Venus", "Mercury", "Moon"}
     best = None
+    opp = None
     for name, p in planets.items():
         if name == S:
             continue
@@ -142,9 +146,22 @@ def _notable_signals(planets: dict, sp: dict, moon: float) -> dict:
         if orb <= 2.0:
             out["exact_conjunctions"].append(f"{S}+{name} ({round(orb,2)}°)")
         if name in benefics and orb <= 8.0:
-            out["benefic_contacts_to_S"].append(f"{name} ({round(orb,1)}°)")
+            exalted = name in EXALTATION and p["sign"] == EXALTATION[name][0]
+            out["benefic_contacts_to_S"].append(
+                f"{name} ({round(orb,1)}°{', exalted' if exalted else ''})")
+            # tightest benefic contact becomes the 'opportunity forming' signal
+            if orb <= 6.0 and (opp is None or orb < opp["orb"]):
+                opp = {"planet": name, "orb": round(orb, 2), "exalted": exalted}
     if best:
         out["tightest_contact_to_S"] = {"planet": best[0], "orb": round(best[1], 2)}
+    if opp:
+        strength = "exceptionally strong (exalted)" if opp["exalted"] else "strong"
+        out["opportunity_forming"] = (
+            f"A benefic force is in close contact with the querent ({opp['orb']}°) and it is "
+            f"{strength}. INTERPRET THIS AS: a genuine opportunity is forming right alongside "
+            f"the person — fresh, real, and moving in the same direction as them — even if the "
+            f"main question's own outcome reads as a 'no'. This is usually the headline of the reading."
+        )
     return out
 
 

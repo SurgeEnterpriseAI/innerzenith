@@ -17,6 +17,8 @@ Layers:
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 import swisseph as swe
 
 from .constants import (
@@ -83,6 +85,18 @@ def prashna_chart(tc, question_type: str = "general") -> dict:
     layer5 = _layer5_moon(planets, moon, asc_sign_idx)
     if layer5.get("voc"):
         validity["VOC_FLAG"] = True
+    else:
+        # Translate degrees-to-exact into a concrete calendar window: the Moon
+        # moves ~13.2°/day. This is what lets the AI say "around June 15".
+        days = layer5["degrees_to_exact"] / 13.2
+        layer5["days_to_exact"] = round(days, 1)
+        try:
+            layer5["approx_date"] = (tc.local_dt.date() + timedelta(days=round(days))).isoformat()
+        except Exception:
+            pass
+
+    # ── Strongest signal & notable contacts (so the AI names the loudest thing) ──
+    notable = _notable_signals(planets, sp, moon)
 
     # ── Layer 6: Event Timing ──
     layer6 = _layer6_timing(layer4, sp, planets, moon, MODALITY[sign_of(udaya)], layer3)
@@ -104,7 +118,34 @@ def prashna_chart(tc, question_type: str = "general") -> dict:
         "layer4_tajika": layer4,
         "layer5_moon_application": layer5,
         "layer6_event_timing": layer6,
+        "notable_signals": notable,
     }
+
+
+def _notable_signals(planets: dict, sp: dict, moon: float) -> dict:
+    """Surface the single loudest thing in the chart so the AI can name it:
+    the tightest contact to the Significator, and any exalted/benefic
+    conjunction to S (e.g. an opportunity 'forming' = benefic on the querent)."""
+    S = sp.get("S")
+    out = {"tightest_contact_to_S": None, "benefic_contacts_to_S": [], "exact_conjunctions": []}
+    if S not in planets:
+        return out
+    s_lon = planets[S]["lon"]
+    benefics = {"Jupiter", "Venus", "Mercury", "Moon"}
+    best = None
+    for name, p in planets.items():
+        if name == S:
+            continue
+        orb = _orb(s_lon, p["lon"])
+        if best is None or orb < best[1]:
+            best = (name, orb)
+        if orb <= 2.0:
+            out["exact_conjunctions"].append(f"{S}+{name} ({round(orb,2)}°)")
+        if name in benefics and orb <= 8.0:
+            out["benefic_contacts_to_S"].append(f"{name} ({round(orb,1)}°)")
+    if best:
+        out["tightest_contact_to_S"] = {"planet": best[0], "orb": round(best[1], 2)}
+    return out
 
 
 # ─── Significator / Promittor (8.2) ────────────────────────────

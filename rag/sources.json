@@ -1,0 +1,72 @@
+[
+  {
+    "id": "bphs_dev",
+    "title": "Brihat Parashara Hora Shastra (Devanagari)",
+    "url": "https://archive.org/download/brihat-parashar-hora-shastra/%E0%A4%AA%E0%A4%B0%E0%A4%BE%E0%A4%B6%E0%A4%B0%E0%A4%B9%E0%A5%8B%E0%A4%B0%E0%A4%BE%E0%A4%B6%E0%A4%BE%E0%A4%B8%E0%A5%8D%E0%A4%A4%E0%A5%8D%E0%A4%B0%20Brihat%20Parashar%20Hora%20Shastra%20.pdf",
+    "tradition": "Vedic",
+    "scanned": true
+  },
+  {
+    "id": "jyotisha_zip",
+    "title": "Jyotisha collection (archive.org)",
+    "url": "https://archive.org/compress/jyotisha/formats=IMAGE%20CONTAINER%20PDF,TEXT%20PDF&file=/jyotisha.zip",
+    "tradition": "Vedic",
+    "scanned": true
+  },
+  {
+    "id": "ignca_6945",
+    "title": "IGNCA 6945",
+    "url": "https://archive.org/download/in.gov.ignca.6945/6945.pdf",
+    "tradition": "Vedic",
+    "scanned": true
+  },
+  {
+    "id": "saravali",
+    "title": "Saravali of Kalyana Varma",
+    "url": "https://ia600505.us.archive.org/15/items/Scriptures/saravaliofkalyan01kalyuoft.pdf",
+    "tradition": "Vedic",
+    "scanned": true
+  },
+  {
+    "id": "uttara_kalamrita",
+    "title": "Uttara Kaalaamruta of Kaalidaasa (Hindi)",
+    "url": "https://archive.org/download/p.-s.-sastri-uttarakaalaamruta-of-kaalidaasa-hindi/%5BP.%20S.%20Sastri%5D%20Uttarakaalaamruta%20of%20Kaalidaasa%20-%20Hindi.pdf",
+    "tradition": "Vedic",
+    "scanned": true
+  },
+  {
+    "id": "jataka_parijata",
+    "title": "Jataka Parijata",
+    "url": "https://archive.org/download/in.ernet.dli.2015.312156/2015.312156.Jataka-Parijata.pdf",
+    "tradition": "Vedic",
+    "scanned": true
+  },
+  {
+    "id": "pvr_book1",
+    "title": "Integrated Vedic Astrology Vol 1 (P.V.R. Narasimha Rao)",
+    "url": "https://www.vedicastrologer.org/classes/book1-for-CD.pdf",
+    "tradition": "Vedic",
+    "scanned": false
+  },
+  {
+    "id": "pvr_book2",
+    "title": "Integrated Vedic Astrology Vol 2 (P.V.R. Narasimha Rao)",
+    "url": "https://www.vedicastrologer.org/classes/book2-for-CD.pdf",
+    "tradition": "Vedic",
+    "scanned": false
+  },
+  {
+    "id": "light_on_life",
+    "title": "Light on Life — Robert Svoboda & Hart de Fouw",
+    "url": "https://storage.yandexcloud.net/j108/library/1h8hzjau/Robert_Svoboda_-_Light_on_life_An_Introduction_to_the_Astrology_of_India.pdf",
+    "tradition": "Vedic",
+    "scanned": false
+  },
+  {
+    "id": "three_hundred",
+    "title": "Three Hundred Important Combinations (B.V. Raman)",
+    "url": "https://archive.org/download/in.ernet.dli.2015.83552/2015.83552.Three-Hundred-Important-Combinations.pdf",
+    "tradition": "Vedic",
+    "scanned": true
+  }
+]

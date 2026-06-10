@@ -14,3 +14,7 @@ __pycache__/
 venv/
 *.tsbuildinfo
 next-env.d.ts.bak
+
+# RAG artifacts (keep chunks.jsonl tracked — it's the corpus embed_upsert reads)
+rag/_pdfs/
+ephemeris-service/_ragtmp/

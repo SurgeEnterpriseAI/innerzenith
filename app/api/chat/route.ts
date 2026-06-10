@@ -4,6 +4,7 @@ import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { fetchChart, chartToContext, timeDrilldown, EphemerisInput, geocodeCity, castPrashna, fetchToday, buildSurpriseContext } from "@/lib/ephemeris";
 import { readEnv } from "@/lib/env";
+import { classicalGrounding } from "@/lib/rag";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -232,6 +233,21 @@ export async function POST(req: NextRequest) {
       if (chart) system += "\n\n" + chartToContext(chart, body.profile?.current_city);
     } catch {}
   }
+
+  // Classical grounding (Stage 11.1 RAG) — retrieve relevant passages from the
+  // source texts and inject them as the authority behind the interpretation.
+  // No-op until VOYAGE_API_KEY + Supabase pgvector are configured.
+  try {
+    const lastUser = [...body.messages].reverse().find(
+      (m) => m.role === "user" && !m.content.startsWith("__")
+    );
+    const topicHint = body.category ? `${body.category} ` : "";
+    const q = (topicHint + (lastUser?.content || "")).trim();
+    if (q.length > 3) {
+      const grounding = await classicalGrounding(q, 4);
+      if (grounding) system += grounding;
+    }
+  } catch {}
 
   // Opening-turn rewriting: replace sentinels with the right instruction.
   const messages = body.messages.map((m, i) => {

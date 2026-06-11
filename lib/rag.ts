@@ -34,28 +34,13 @@ export function ragConfigured(): boolean {
   return Boolean(readEnv("VOYAGE_API_KEY")) && loadStore().length > 0;
 }
 
-// diagnostics (used by /api/rag-test only)
+// diagnostic (used by /api/rag-test only) — reports store size + whether the
+// query embedding succeeded, WITHOUT exposing any key material.
 export function _debugStoreSize(): number {
   return loadStore().length;
 }
-export async function _debugEmbed(q: string): Promise<number[] | null> {
-  return embedQuery(q);
-}
-export async function _debugVoyage(q: string): Promise<any> {
-  const key = readEnv("VOYAGE_API_KEY") || "";
-  const fingerprint = key ? `${key.slice(0, 6)}…${key.slice(-4)} (len ${key.length})` : "MISSING";
-  try {
-    const res = await fetch("https://api.voyageai.com/v1/embeddings", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ input: [q], model: MODEL, input_type: "query" }),
-      signal: AbortSignal.timeout(12000),
-    });
-    const text = await res.text();
-    return { keyFingerprint: fingerprint, status: res.status, ok: res.ok, body: text.slice(0, 200) };
-  } catch (e: any) {
-    return { keyFingerprint: fingerprint, error: String(e?.message || e) };
-  }
+export async function _debugEmbedOk(q: string): Promise<boolean> {
+  return Boolean(await embedQuery(q));
 }
 
 async function embedQuery(text: string): Promise<number[] | null> {

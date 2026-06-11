@@ -1,17 +1,45 @@
-// RAG retrieval (Stage 11.1) — embed the query with Voyage, fetch the most
-// relevant classical-text passages from Supabase pgvector, and format them as
-// grounding for the AI. Graceful no-op if VOYAGE_API_KEY / Supabase aren't set.
+// RAG retrieval (Stage 11.1) — self-contained file vector store.
+// At query time: embed the query with Voyage, cosine-scan the bundled
+// rag/embeddings.json (710 vectors → sub-millisecond), inject the top hits as
+// classical grounding. No database. Graceful no-op if the key/file are absent.
 
+import fs from "node:fs";
+import path from "node:path";
 import { readEnv } from "./env";
 
 const MODEL = "voyage-3.5-lite";
 
+type Rec = { id: string; source: string; title: string; location: string; content: string; embedding: number[] };
+let cache: Rec[] | null = null;
+
+function loadStore(): Rec[] {
+  if (cache) return cache;
+  const candidates = [
+    path.join(process.cwd(), "rag", "embeddings.json"),
+    path.join(process.cwd(), "..", "rag", "embeddings.json"),
+    path.join(__dirname, "..", "rag", "embeddings.json"),
+  ];
+  for (const p of candidates) {
+    try {
+      const data = JSON.parse(fs.readFileSync(p, "utf8"));
+      cache = data.records || [];
+      return cache!;
+    } catch {}
+  }
+  cache = [];
+  return cache;
+}
+
 export function ragConfigured(): boolean {
-  return Boolean(
-    readEnv("VOYAGE_API_KEY") &&
-      readEnv("NEXT_PUBLIC_SUPABASE_URL") &&
-      readEnv("SUPABASE_SERVICE_ROLE_KEY")
-  );
+  return Boolean(readEnv("VOYAGE_API_KEY")) && loadStore().length > 0;
+}
+
+// diagnostics (used by /api/rag-test only)
+export function _debugStoreSize(): number {
+  return loadStore().length;
+}
+export async function _debugEmbed(q: string): Promise<number[] | null> {
+  return embedQuery(q);
 }
 
 async function embedQuery(text: string): Promise<number[] | null> {
@@ -32,29 +60,34 @@ async function embedQuery(text: string): Promise<number[] | null> {
   }
 }
 
-/** Retrieve top-K classical passages relevant to `query`. */
-export async function retrieveClassical(query: string, k = 4): Promise<
-  { source: string; title: string; location: string; content: string; similarity: number }[]
-> {
-  if (!ragConfigured()) return [];
-  const url = readEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const key = readEnv("SUPABASE_SERVICE_ROLE_KEY");
-  const embedding = await embedQuery(query);
-  if (!embedding) return [];
-  try {
-    const res = await fetch(`${url}/rest/v1/rpc/match_knowledge`, {
-      method: "POST",
-      headers: {
-        apikey: key!, Authorization: `Bearer ${key}`, "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query_embedding: embedding, match_count: k, min_similarity: 0.35 }),
-      signal: AbortSignal.timeout(12000),
-    });
-    if (!res.ok) return [];
-    return await res.json();
-  } catch {
-    return [];
+function cosine(a: number[], b: number[]): number {
+  let dot = 0, na = 0, nb = 0;
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
   }
+  return na && nb ? dot / (Math.sqrt(na) * Math.sqrt(nb)) : 0;
+}
+
+export async function retrieveClassical(
+  query: string,
+  k = 4,
+  minSim = 0.35
+): Promise<{ source: string; title: string; location: string; content: string; similarity: number }[]> {
+  const store = loadStore();
+  if (!store.length) return [];
+  const q = await embedQuery(query);
+  if (!q) return [];
+  const scored = store
+    .map((r) => ({ ...r, similarity: cosine(q, r.embedding) }))
+    .filter((r) => r.similarity >= minSim)
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, k);
+  return scored.map(({ source, title, location, content, similarity }) => ({
+    source, title, location, content, similarity,
+  }));
 }
 
 /** Format retrieved passages as a silent grounding block for the AI. */
@@ -62,10 +95,7 @@ export async function classicalGrounding(query: string, k = 4): Promise<string> 
   const hits = await retrieveClassical(query, k);
   if (!hits.length) return "";
   const blocks = hits
-    .map(
-      (h, i) =>
-        `[${i + 1}] (${h.title}, ${h.location})\n${h.content.slice(0, 1200)}`
-    )
+    .map((h, i) => `[${i + 1}] (${h.title}, ${h.location})\n${h.content.slice(0, 1200)}`)
     .join("\n\n");
   return `
 --- CLASSICAL GROUNDING (retrieved from the source texts — reason FROM these

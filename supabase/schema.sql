@@ -1,131 +1,59 @@
--- InnerZenith — full schema
--- Run this once in the Supabase SQL editor.
--- Reset-safe: drops and recreates everything.
+-- dotit — persistence schema (document model, email-magic-link auth).
+-- Run once in the Supabase SQL editor (Project → SQL → New query → paste → Run).
+-- Reset-safe: drops and recreates the app tables only. Does NOT touch auth.*.
+--
+-- Design: the app stores flat JSON blobs in localStorage (Profile, Session[],
+-- the daily Surprise). These tables mirror those shapes 1:1, one owner per row
+-- keyed to the Supabase auth user, so the browser client (with the user's
+-- session) reads/writes only its own rows under Row-Level Security. No
+-- service_role key is needed anywhere — the anon key + RLS is the whole story.
+-- (Supersedes the earlier normalized profiles/birth_charts/threads/messages
+--  draft, which was built for the phone-OTP era and never deployed.)
 
--- ─── Extensions ────────────────────────────────────────────────
-create extension if not exists "pgcrypto";
+-- ─── Reset ─────────────────────────────────────────────────────
+drop table if exists app_surprise cascade;
+drop table if exists app_sessions cascade;
+drop table if exists app_profile cascade;
 
 -- ─── Tables ────────────────────────────────────────────────────
 
--- profiles: one row per auth user (anonymous or phone-linked)
-drop table if exists messages cascade;
-drop table if exists threads cascade;
-drop table if exists birth_charts cascade;
-drop table if exists profiles cascade;
-
-create table profiles (
-  id              uuid primary key references auth.users(id) on delete cascade,
-  display_name    text,
-  phone           text,
-  created_at      timestamptz default now(),
-  updated_at      timestamptz default now()
+-- One profile blob per user (the entire lib/profile.ts Profile object,
+-- including the full four-system chart computed once at onboarding).
+create table app_profile (
+  user_id     uuid primary key references auth.users(id) on delete cascade,
+  profile     jsonb not null,
+  updated_at  timestamptz not null default now()
 );
 
--- birth_charts: full-precision chart storage.
--- Even the seconds and longitude/latitude to 6 decimals are kept,
--- because the user said "till minute details".
-create table birth_charts (
-  id              uuid primary key default gen_random_uuid(),
-  user_id         uuid not null references profiles(id) on delete cascade,
-  name            text,
-  birth_date      date not null,
-  birth_time      time,                       -- nullable: user may not know
-  birth_time_known boolean not null default false,
-  birth_place     text not null,              -- "Bangalore, India"
-  latitude        numeric(10, 6),
-  longitude       numeric(10, 6),
-  timezone        text,                       -- "Asia/Kolkata"
-  -- raw chart math computed by the Python ephemeris sidecar
-  chart_json      jsonb,                      -- full Vedic + KP + BaZi + Navamsha output
-  rectified       boolean default false,      -- true after BTR succeeded
-  rectification_events jsonb,                 -- life events used in BTR
-  created_at      timestamptz default now(),
-  updated_at      timestamptz default now()
+-- One row per History / Ask Now session (the lib/sessions.ts Session object).
+-- id is the client-generated id ("s_..."), so upserts are idempotent across devices.
+create table app_sessions (
+  id          text not null,
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  data        jsonb not null,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  primary key (user_id, id)
+);
+create index idx_app_sessions_user on app_sessions (user_id, created_at desc);
+
+-- The once-per-calendar-day Surprise Me reading.
+create table app_surprise (
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  day         date not null,
+  text        text not null,
+  created_at  timestamptz not null default now(),
+  primary key (user_id, day)
 );
 
--- threads: each user's conversations
-create table threads (
-  id              uuid primary key default gen_random_uuid(),
-  user_id         uuid not null references profiles(id) on delete cascade,
-  title           text,                       -- inferred from first user message
-  active_bucket   text,                       -- career / love / property / money / family / inner
-  created_at      timestamptz default now(),
-  updated_at      timestamptz default now()
-);
+-- ─── Row-Level Security: every user sees only their own rows ────
+alter table app_profile  enable row level security;
+alter table app_sessions enable row level security;
+alter table app_surprise enable row level security;
 
--- messages: every turn in every conversation
-create table messages (
-  id              uuid primary key default gen_random_uuid(),
-  thread_id       uuid not null references threads(id) on delete cascade,
-  role            text not null check (role in ('user', 'assistant', 'system')),
-  content         text not null,
-  -- facts the advisor remembered from this message (Rule 6: facts not feelings)
-  facts_json      jsonb,
-  token_count     integer,
-  created_at      timestamptz default now()
-);
-
--- ─── Indexes ───────────────────────────────────────────────────
-create index idx_birth_charts_user on birth_charts(user_id);
-create index idx_threads_user on threads(user_id, updated_at desc);
-create index idx_messages_thread on messages(thread_id, created_at asc);
-
--- ─── Triggers ──────────────────────────────────────────────────
-create or replace function touch_updated_at()
-returns trigger language plpgsql as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$;
-
-create trigger profiles_touch before update on profiles
-  for each row execute function touch_updated_at();
-create trigger birth_charts_touch before update on birth_charts
-  for each row execute function touch_updated_at();
-create trigger threads_touch before update on threads
-  for each row execute function touch_updated_at();
-
--- ─── Auto-create profile on auth.users insert ─────────────────
-create or replace function handle_new_user()
-returns trigger language plpgsql security definer as $$
-begin
-  insert into profiles (id, phone) values (new.id, new.phone);
-  return new;
-end;
-$$;
-
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function handle_new_user();
-
--- ─── Row Level Security ────────────────────────────────────────
-alter table profiles      enable row level security;
-alter table birth_charts  enable row level security;
-alter table threads       enable row level security;
-alter table messages      enable row level security;
-
--- Profiles: user can read/update their own
-create policy "self read profile"   on profiles for select using (auth.uid() = id);
-create policy "self update profile" on profiles for update using (auth.uid() = id);
-
--- Charts: user owns their own
-create policy "self read charts"    on birth_charts for select using (auth.uid() = user_id);
-create policy "self insert charts"  on birth_charts for insert with check (auth.uid() = user_id);
-create policy "self update charts"  on birth_charts for update using (auth.uid() = user_id);
-create policy "self delete charts"  on birth_charts for delete using (auth.uid() = user_id);
-
--- Threads
-create policy "self read threads"   on threads for select using (auth.uid() = user_id);
-create policy "self insert threads" on threads for insert with check (auth.uid() = user_id);
-create policy "self update threads" on threads for update using (auth.uid() = user_id);
-create policy "self delete threads" on threads for delete using (auth.uid() = user_id);
-
--- Messages: scoped through thread ownership
-create policy "self read messages"  on messages for select using (
-  exists (select 1 from threads t where t.id = thread_id and t.user_id = auth.uid())
-);
-create policy "self insert messages" on messages for insert with check (
-  exists (select 1 from threads t where t.id = thread_id and t.user_id = auth.uid())
-);
+create policy "own profile"  on app_profile
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "own sessions" on app_sessions
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "own surprise" on app_surprise
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

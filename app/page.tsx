@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { Profile, loadProfile } from "@/lib/profile";
+import { syncInit, onAuthSignIn } from "@/lib/sync";
 import { CategoryKey } from "@/lib/categories";
 import { Session as Sess } from "@/lib/sessions";
 import Onboarding from "@/components/Onboarding";
@@ -29,8 +30,24 @@ export default function Page() {
   const [view, setView] = useState<View>({ kind: "tab", tab: "home" });
 
   useEffect(() => {
-    setProfile(loadProfile());
-    setReady(true);
+    let cancelled = false;
+    // On cold load: if signed in, hydrate localStorage from Supabase first so
+    // the UI reads the synced data. No-op (instant) when sync is unconfigured.
+    const hydrate = async () => {
+      try {
+        await syncInit();
+      } catch {}
+      if (cancelled) return;
+      setProfile(loadProfile());
+      setReady(true);
+    };
+    hydrate();
+    // Re-hydrate when a sign-in lands (e.g. returning from a magic link).
+    const unsub = onAuthSignIn(hydrate);
+    return () => {
+      cancelled = true;
+      unsub();
+    };
   }, []);
 
   if (!ready) {

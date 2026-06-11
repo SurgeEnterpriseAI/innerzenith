@@ -9,9 +9,11 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   return NextResponse.json({
     voice: Boolean(process.env.AZURE_SPEECH_KEY),
+    // Cross-device persistence is client-side under RLS — it needs only the
+    // public URL + anon key (no service_role).
     persistence: Boolean(
       process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        process.env.SUPABASE_SERVICE_ROLE_KEY
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     ),
     chartMath: Boolean(process.env.EPHEMERIS_URL),
     // classical-text grounding: Voyage key gates it; the embeddings store is

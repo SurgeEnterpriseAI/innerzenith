@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { Profile, clearProfile, saveProfile } from "@/lib/profile";
 import { clearAllSessions } from "@/lib/sessions";
+import AccountSync from "./AccountSync";
 
 export default function ProfileView({
   profile,
@@ -80,6 +81,8 @@ export default function ProfileView({
           className="w-full mt-3 border border-white/15 hover:border-white/30 rounded-full py-3 text-sm text-[#d4d4d4] transition disabled:opacity-50">
           {refreshing ? "Refreshing your chart…" : "Refresh my chart"}
         </button>
+
+        <AccountSync />
 
         <div className="mt-10 pt-6 border-t border-white/10 space-y-3">
           <p className="micro-label">History</p>

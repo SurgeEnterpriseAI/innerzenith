@@ -1,6 +1,8 @@
-// Local session store (History). Supabase-backed in Phase 7.
+// Session store (History). localStorage is the synchronous source of truth;
+// writes mirror to Supabase for cross-device sync when signed in (lib/sync.ts).
 
 import { CategoryKey } from "./categories";
+import { pushSession, removeSession, clearSessionsRemote } from "./sync";
 
 export type ChatMsg = { role: "user" | "assistant"; content: string };
 
@@ -38,14 +40,17 @@ export function upsertSession(s: Session) {
   if (i >= 0) all[i] = s;
   else all.unshift(s);
   saveSessions(all);
+  pushSession(s); // mirror to Supabase when signed in (no-op otherwise)
 }
 
 export function deleteSession(id: string) {
   saveSessions(loadSessions().filter((s) => s.id !== id));
+  removeSession(id);
 }
 
 export function clearAllSessions() {
   saveSessions([]);
+  clearSessionsRemote();
 }
 
 export function newId(): string {

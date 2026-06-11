@@ -1,5 +1,8 @@
 // dotit user profile — Stage 1.3 Data Collected During Onboarding.
-// Stored in localStorage for now; Supabase persistence lands in Phase 7.
+// localStorage is the synchronous source of truth; writes are mirrored to
+// Supabase for cross-device sync when the user is signed in (see lib/sync.ts).
+
+import { pushProfile, clearProfileRemote } from "./sync";
 
 export type Gender = "M" | "F";
 
@@ -90,10 +93,12 @@ export function saveProfile(p: Profile) {
   try {
     localStorage.setItem(KEY, JSON.stringify(p));
   } catch {}
+  pushProfile(p); // mirror to Supabase when signed in (no-op otherwise)
 }
 
 export function clearProfile() {
   try {
     localStorage.removeItem(KEY);
   } catch {}
+  clearProfileRemote(); // mirror the reset to Supabase when signed in
 }

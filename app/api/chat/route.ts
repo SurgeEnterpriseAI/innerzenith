@@ -2,9 +2,16 @@ import { NextRequest } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
-import { fetchChart, chartToContext, timeDrilldown, EphemerisInput, geocodeCity, castPrashna, fetchToday, buildSurpriseContext } from "@/lib/ephemeris";
+import { fetchChart, chartToContext, timeDrilldown, EphemerisInput, castPrashna, fetchToday, buildSurpriseContext } from "@/lib/ephemeris";
 import { readEnv } from "@/lib/env";
 import { classicalGrounding } from "@/lib/rag";
+import { parseAskNow, missingPrompt } from "@/lib/asknow";
+
+const TEXT_HEADERS = {
+  "Content-Type": "text/plain; charset=utf-8",
+  "Cache-Control": "no-store",
+  "X-Accel-Buffering": "no",
+};
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -83,52 +90,6 @@ function profileContext(p: ProfileLite | null | undefined): string {
   return `\n\n--- USER FACTS (never read birth data aloud; never name techniques) ---\n${lines.join("\n")}\n`;
 }
 
-// Stage 8.3 — pull {question, datetime, city} out of the Ask Now conversation.
-async function extractAskNow(
-  messages: Msg[],
-  apiKey: string,
-  model: string
-): Promise<{
-  question: string | null;
-  datetime_local: string | null;
-  city: string | null;
-  question_type: string | null;
-}> {
-  const convo = messages
-    .filter((m) => !m.content.startsWith("__"))
-    .map((m) => `${m.role}: ${m.content}`)
-    .join("\n");
-  const client = new Anthropic({ apiKey });
-  try {
-    const resp = await client.messages.create({
-      model,
-      max_tokens: 300,
-      system:
-        "Extract Prashna details from the conversation. Return ONLY a JSON object, no prose. " +
-        "Fields: question (the one specific question, or null), datetime_local " +
-        "(the moment the question arrived in the user's mind, as 'YYYY-MM-DDTHH:MM' in 24h, or null if not clearly stated), " +
-        "city (the city the user was in at that moment, or null), question_type. " +
-        "question_type MUST be exactly one of: job, money, gains, relationship, marriage, property, " +
-        "health, body, travel, legal, lost_object, missing_child, missing_sibling, missing_spouse, " +
-        "missing_person, communication, purpose, general. Use 'general' for ambiguous/unclassifiable questions. " +
-        "Only fill a field if the user actually provided it. Do not invent a date/time — 'now' or vague terms are null.",
-      messages: [{ role: "user", content: convo || "(no messages yet)" }],
-    });
-    const text = resp.content
-      .map((b: any) => (b.type === "text" ? b.text : ""))
-      .join("");
-    const json = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
-    return {
-      question: json.question || null,
-      datetime_local: json.datetime_local || null,
-      city: json.city || null,
-      question_type: json.question_type || "general",
-    };
-  } catch {
-    return { question: null, datetime_local: null, city: null, question_type: "general" };
-  }
-}
-
 export async function POST(req: NextRequest) {
   const apiKey = readEnv("ANTHROPIC_API_KEY");
   const model = readEnv("ANTHROPIC_MODEL") || "claude-opus-4-5";
@@ -184,42 +145,43 @@ export async function POST(req: NextRequest) {
       );
     }
   } else if (mode === "asknow") {
-    // Stage 8.3 — extract the three things from the conversation. If all
-    // present, cast the question-moment chart and inject it. If not, the
-    // ask-now prompt makes the model ask for only the missing piece.
-    const extracted = await extractAskNow(body.messages, apiKey, model);
-    if (extracted.question && extracted.datetime_local && extracted.city) {
-      const geo = await geocodeCity(extracted.city);
-      if (geo) {
-        const chart = await castPrashna({
-          moment_iso: extracted.datetime_local, // naive = stated local time
-          latitude: geo.latitude,
-          longitude: geo.longitude,
-          timezone: geo.timezone,
-          question_type: extracted.question_type || "general",
-        });
-        if (chart) {
-          system +=
-            "\n\n--- QUESTION-MOMENT CHART (the three things are all present; answer now) ---\n" +
-            `Question: ${extracted.question}\nMoment: ${extracted.datetime_local} in ${geo.name}\n` +
-            JSON.stringify(chart);
-          // Natal chart, if stored, enters quietly as a SECOND layer (8.10).
-          if (body.chartProfile) {
-            system +=
-              "\n\n--- NATAL CONTEXT (silent second layer — NEVER announce it, NEVER say you do or don't have birth details; just let it deepen the answer) ---\n" +
-              chartToContext(body.chartProfile);
-          }
-        }
+    // Stage 8.3 — CONTEXT-DRIVEN collection. Gather the three things WITHOUT a
+    // Claude call: date/time via chrono, city via geocode, question = the rest.
+    const userTexts = body.messages
+      .filter((m) => m.role === "user" && !m.content.startsWith("__"))
+      .map((m) => m.content);
+    const state = await parseAskNow(userTexts);
+
+    if (state.missing.length > 0) {
+      // Still collecting → return a FIXED prompt for the missing piece. No LLM.
+      return new Response(missingPrompt(state), { headers: TEXT_HEADERS });
+    }
+
+    // All three present → cast the question-moment chart. Claude runs ONCE now,
+    // only to produce the reading.
+    const geo = state.city!;
+    const chart = await castPrashna({
+      moment_iso: state.datetime_local!,
+      latitude: geo.latitude,
+      longitude: geo.longitude,
+      timezone: geo.timezone,
+      question_type: state.questionType,
+    });
+    if (chart) {
+      system +=
+        "\n\n--- QUESTION-MOMENT CHART (the three things are all present; answer now) ---\n" +
+        `Question: ${state.question}\nMoment: ${state.datetime_local} in ${geo.name}\n` +
+        JSON.stringify(chart);
+      if (body.chartProfile) {
+        system +=
+          "\n\n--- NATAL CONTEXT (silent second layer — NEVER announce it, NEVER say you do or don't have birth details; just let it deepen the answer) ---\n" +
+          chartToContext(body.chartProfile);
       }
     } else {
-      const missing = [
-        !extracted.question && "the specific question",
-        !extracted.datetime_local && "the exact date and time it arrived in your mind",
-        !extracted.city && "the city you were in at that moment",
-      ].filter(Boolean);
-      system +=
-        "\n\n--- COLLECTION STATE ---\nStill missing: " + missing.join("; ") +
-        ".\nAsk warmly for ONLY the missing piece(s) in one short line. Do not give a reading yet.";
+      return new Response(
+        "I couldn't read that moment just now — try sending the question, the exact time, and the city once more.",
+        { headers: TEXT_HEADERS }
+      );
     }
   } else if (body.chartProfile) {
     // Natal — chart computed once at onboarding and stored client-side.

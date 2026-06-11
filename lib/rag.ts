@@ -41,6 +41,22 @@ export function _debugStoreSize(): number {
 export async function _debugEmbed(q: string): Promise<number[] | null> {
   return embedQuery(q);
 }
+export async function _debugVoyage(q: string): Promise<any> {
+  const key = readEnv("VOYAGE_API_KEY") || "";
+  const fingerprint = key ? `${key.slice(0, 6)}…${key.slice(-4)} (len ${key.length})` : "MISSING";
+  try {
+    const res = await fetch("https://api.voyageai.com/v1/embeddings", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ input: [q], model: MODEL, input_type: "query" }),
+      signal: AbortSignal.timeout(12000),
+    });
+    const text = await res.text();
+    return { keyFingerprint: fingerprint, status: res.status, ok: res.ok, body: text.slice(0, 200) };
+  } catch (e: any) {
+    return { keyFingerprint: fingerprint, error: String(e?.message || e) };
+  }
+}
 
 async function embedQuery(text: string): Promise<number[] | null> {
   const key = readEnv("VOYAGE_API_KEY");

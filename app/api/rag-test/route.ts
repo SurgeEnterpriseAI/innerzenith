@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { retrieveClassical, ragConfigured, _debugStoreSize, _debugEmbed } from "@/lib/rag";
+import { retrieveClassical, ragConfigured, _debugStoreSize, _debugVoyage } from "@/lib/rag";
 
 // Diagnostic: proves classical-text retrieval works in the deployed runtime.
 export const runtime = "nodejs";
@@ -8,13 +8,12 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q") || "yoga for rise in career and recognition";
   const storeSize = _debugStoreSize();
-  const qEmb = await _debugEmbed(q);
+  const voyage = await _debugVoyage(q);
   const hits = await retrieveClassical(q, 5);
   return NextResponse.json({
     configured: ragConfigured(),
     storeSize,
-    queryEmbeddedDims: qEmb ? qEmb.length : null,
-    queryEmbedOk: Boolean(qEmb),
+    voyage,
     count: hits.length,
     hits: hits.map((h) => ({
       title: h.title,

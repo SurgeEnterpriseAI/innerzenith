@@ -11,6 +11,18 @@
 --  draft, which was built for the phone-OTP era and never deployed.)
 
 -- ─── Reset ─────────────────────────────────────────────────────
+-- Remove the legacy phone-OTP schema if it was ever run on this project.
+-- Its on_auth_user_created trigger calls handle_new_user(), which inserts
+-- into the old `profiles` table; if that errors, every signup fails with
+-- "Database error saving new user". The document model below needs no such
+-- trigger (the client writes app_profile on first save), so drop it all.
+drop trigger if exists on_auth_user_created on auth.users;
+drop function if exists handle_new_user() cascade;
+drop table if exists messages cascade;
+drop table if exists threads cascade;
+drop table if exists birth_charts cascade;
+drop table if exists profiles cascade;
+
 drop table if exists app_surprise cascade;
 drop table if exists app_sessions cascade;
 drop table if exists app_profile cascade;

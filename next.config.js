@@ -7,7 +7,8 @@ const nextConfig = {
   // silently falls back to a 1-line default prompt. Force them to ship.
   experimental: {
     outputFileTracingIncludes: {
-      "/api/chat": ["./system-prompt.md", "./ask-now-prompt.md"],
+      "/api/chat": ["./system-prompt.md", "./ask-now-prompt.md", "./rag/embeddings.json"],
+      "/api/rag-test": ["./rag/embeddings.json"],
     },
   },
 };

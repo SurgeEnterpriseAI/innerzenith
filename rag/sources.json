@@ -68,5 +68,45 @@
     "url": "https://archive.org/download/in.ernet.dli.2015.83552/2015.83552.Three-Hundred-Important-Combinations.pdf",
     "tradition": "Vedic",
     "scanned": true
+  },
+  {
+    "id": "phaladeepika",
+    "title": "Phaladeepika of Mantreswara (English)",
+    "url": "https://archive.org/download/in.gov.ignca.6945/6945_djvu.txt",
+    "tradition": "Vedic",
+    "scanned": true,
+    "note": "Clean English OCR layer of IGNCA 6945 (the founder's link). Ingested 2026-06-12."
+  },
+  {
+    "id": "brihat_jataka_en",
+    "title": "Brihat Jataka of Varahamihira (English, Iyer)",
+    "url": "https://archive.org/download/brihatjatakavar00iyergoog/brihatjatakavar00iyergoog_djvu.txt",
+    "tradition": "Vedic",
+    "scanned": true,
+    "note": "English translation substituted for the Devanagari scan inside the jyotisha.zip collection. Ingested 2026-06-12."
+  },
+  {
+    "id": "brihat_samhita_en",
+    "title": "Brihat Samhita of Varahamihira (English, Iyer)",
+    "url": "https://archive.org/download/bihatsahitvarah00iyergoog/bihatsahitvarah00iyergoog_djvu.txt",
+    "tradition": "Vedic",
+    "scanned": true,
+    "note": "English translation substituted for the Devanagari scan inside the jyotisha.zip collection. Ingested 2026-06-12."
+  },
+  {
+    "id": "jataka_parijata_en",
+    "title": "Jataka Parijata Vol I (V. Subrahmanya Sastri, English)",
+    "url": "https://archive.org/download/JatakaParijataVolIOfIIByVSubrahmanyaSastri/",
+    "tradition": "Vedic",
+    "scanned": true,
+    "note": "English translation substituted for the Devanagari DLI scan (the founder's link). Ingested 2026-06-12."
+  },
+  {
+    "id": "jataka_parijata_en2",
+    "title": "Jataka Parijata Vol II (V. Subrahmanya Sastri, English)",
+    "url": "https://archive.org/download/JatakaParijataVolIIOfIIByVSubrahmanyaSastri/",
+    "tradition": "Vedic",
+    "scanned": true,
+    "note": "English translation substituted for the Devanagari DLI scan (the founder's link). Ingested 2026-06-12."
   }
 ]

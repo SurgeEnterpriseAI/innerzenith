@@ -17,4 +17,5 @@ next-env.d.ts.bak
 
 # RAG artifacts (keep chunks.jsonl tracked — it's the corpus embed_upsert reads)
 rag/_pdfs/
+rag/_raw/
 ephemeris-service/_ragtmp/

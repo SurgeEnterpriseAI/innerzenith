@@ -13,6 +13,7 @@ CHUNK, OVERLAP = 3200, 400
 NEW = [
     {"id": "bphs_en", "title": "Brihat Parashara Hora Shastra (English, Santhanam)", "kind": "pdf", "path": os.path.join(PDFS, "bphs_en.pdf")},
     {"id": "three_hundred", "title": "Three Hundred Important Combinations (B.V. Raman)", "kind": "txt", "path": os.path.join(PDFS, "threehundred.txt")},
+    {"id": "saravali_en", "title": "Saravali of Kalyana Varma (English)", "kind": "txt", "path": os.path.join(PDFS, "saravali_en.txt")},
 ]
 
 

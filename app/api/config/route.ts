@@ -14,5 +14,8 @@ export async function GET() {
         process.env.SUPABASE_SERVICE_ROLE_KEY
     ),
     chartMath: Boolean(process.env.EPHEMERIS_URL),
+    // classical-text grounding: Voyage key gates it; the embeddings store is
+    // bundled into the chat function. (Light check — don't load the 15MB store here.)
+    rag: Boolean(process.env.VOYAGE_API_KEY),
   });
 }

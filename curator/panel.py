@@ -54,7 +54,10 @@ def ask_gemini(topic: str, question: str) -> dict:
     data = post_json(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}",
         {"contents": [{"parts": [{"text": PANEL_SYS + "\n\n" + _prompt(topic, question)}]}],
-         "generationConfig": {"temperature": 0.4, "maxOutputTokens": 1024}},
+         # 2.5 models are thinking models: give headroom and turn thinking off
+         # (structured extraction doesn't need it, and it avoids truncated JSON).
+         "generationConfig": {"temperature": 0.4, "maxOutputTokens": 2048,
+                              "thinkingConfig": {"thinkingBudget": 0}}},
         {},
     )
     return extract_json(data["candidates"][0]["content"]["parts"][0]["text"])

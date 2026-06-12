@@ -32,6 +32,9 @@ def env(key: str, default: str | None = None) -> str | None:
 
 
 def post_json(url: str, payload: dict, headers: dict, timeout: int = 120, retries: int = 4) -> dict:
+    """Fail FAST on rate limits — a few short retries, then give up so the panel
+    degrades gracefully (skip that model) rather than stalling the whole batch
+    for minutes. Free-tier rate limits are the model's problem, not the run's."""
     body = json.dumps(payload).encode()
     last = None
     for attempt in range(retries):
@@ -40,17 +43,17 @@ def post_json(url: str, payload: dict, headers: dict, timeout: int = 120, retrie
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 return json.loads(r.read())
         except urllib.error.HTTPError as e:
-            detail = e.read().decode(errors="ignore")[:400]
+            detail = e.read().decode(errors="ignore")[:300]
             last = f"HTTP {e.code}: {detail}"
             if e.code in (429, 500, 502, 503, 529):
-                wait = 5 * (attempt + 1)
-                print(f"      {e.code} — retry in {wait}s")
+                wait = min(6 * (attempt + 1), 12)
+                print(f"      {e.code} — retry in {wait}s ({attempt + 1}/{retries})")
                 time.sleep(wait)
                 continue
             raise RuntimeError(last) from None
         except (urllib.error.URLError, TimeoutError) as e:
             last = str(e)
-            time.sleep(4 * (attempt + 1))
+            time.sleep(3 * (attempt + 1))
     raise RuntimeError(f"giving up: {last}")
 
 
@@ -76,10 +79,10 @@ def cosine(a: list[float], b: list[float]) -> float:
 
 
 def extract_json(text: str) -> dict:
-    """Pull the first JSON object out of a model response (handles ```json fences)."""
+    """Pull the first JSON object out of a model response (handles ```json fences
+    and braces that appear inside string values)."""
     t = text.strip()
     if "```" in t:
-        # take the largest fenced block
         parts = t.split("```")
         for p in parts:
             p = p.strip()
@@ -88,13 +91,25 @@ def extract_json(text: str) -> dict:
             if p.startswith("{"):
                 t = p
                 break
-    start, depth = t.find("{"), 0
+    start = t.find("{")
     if start < 0:
         raise ValueError("no JSON object in response")
+    depth, in_str, esc = 0, False, False
     for i in range(start, len(t)):
-        if t[i] == "{":
+        c = t[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif c == "\\":
+                esc = True
+            elif c == '"':
+                in_str = False
+            continue
+        if c == '"':
+            in_str = True
+        elif c == "{":
             depth += 1
-        elif t[i] == "}":
+        elif c == "}":
             depth -= 1
             if depth == 0:
                 return json.loads(t[start : i + 1])

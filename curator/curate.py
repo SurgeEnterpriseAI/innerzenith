@@ -62,7 +62,7 @@ def main() -> None:
             failed += 1
             print(f"   ✗ failed: {str(e)[:160]}")
         if i < len(topics) - 1:
-            time.sleep(1.0)
+            time.sleep(3.0)  # pace to respect free-tier model rate limits
 
     print(f"\nDone. verified={verified}  review={review}  failed={failed}")
     try:

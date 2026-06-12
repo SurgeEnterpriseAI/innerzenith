@@ -22,6 +22,7 @@ import ProfileView from "@/components/ProfileView";
 import ProfileEdit from "@/components/ProfileEdit";
 import SurpriseMe from "@/components/SurpriseMe";
 import BottomNav, { Tab } from "@/components/BottomNav";
+import LanguageToast from "@/components/LanguageToast";
 
 type View =
   | { kind: "tab"; tab: Tab }
@@ -75,6 +76,16 @@ export default function Page() {
   }, []);
 
   const locale = profile?.language || autoLocale;
+
+  // The "Continue in English?" nudge's escape hatch.
+  function switchToEnglish() {
+    setAutoLocale("en-US");
+    if (profile && profile.language !== "en-US") {
+      const u = { ...profile, language: "en-US" };
+      saveProfile(u);
+      setProfile(u);
+    }
+  }
 
   let content: React.ReactNode;
 
@@ -154,5 +165,10 @@ export default function Page() {
     );
   }
 
-  return <I18nProvider locale={locale}>{content}</I18nProvider>;
+  return (
+    <I18nProvider locale={locale}>
+      {content}
+      {ready && <LanguageToast locale={locale} onEnglish={switchToEnglish} />}
+    </I18nProvider>
+  );
 }

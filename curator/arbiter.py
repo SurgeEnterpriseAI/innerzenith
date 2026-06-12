@@ -7,11 +7,25 @@ from __future__ import annotations
 
 from common import env, extract_json, post_json
 
-# The classical source texts are the authority. A card promotes to the live
-# reading path when the texts STRONGLY back it (model consensus is a bonus when
-# more models are available); partial support additionally needs panel agreement.
-# Everything else waits in the review queue.
-MIN_CONFIDENCE = 0.72
+# "Models mostly agree" bar: a card verifies when the panel agrees (unanimous
+# or majority) AND the classical texts at least partially back it AND confidence
+# clears the floor. The thin "partial support" guard keeps a model hallucination
+# with zero textual basis out, while still letting every real-consensus card
+# through. Split panels or no textual support → review queue.
+MIN_CONFIDENCE = 0.65
+
+
+def verdict(agreement: str, classical_support: str, confidence: float) -> str:
+    """Decide verified vs review from the arbiter's judgments. Single source of
+    truth for the gate, so it can be re-applied (curator/regate.py) after tuning
+    MIN_CONFIDENCE without re-running the panel."""
+    if (
+        confidence >= MIN_CONFIDENCE
+        and agreement in ("unanimous", "majority")
+        and classical_support in ("strong", "partial")
+    ):
+        return "verified"
+    return "review"
 
 ARBITER_SYS = (
     "You are the arbiter of dotit's knowledge base. You distill interpretations "
@@ -71,13 +85,6 @@ def arbitrate(topic: str, question: str, category: str | None,
     if not chosen:
         chosen = citations[:3]
 
-    # Texts are king: strong textual support + confidence is enough on its own.
-    # Partial support also needs cross-model agreement. No support → review.
-    verified = confidence >= MIN_CONFIDENCE and (
-        support == "strong"
-        or (support == "partial" and agreement in ("unanimous", "majority") and confidence >= 0.75)
-    )
-
     return {
         "topic": topic,
         "category": category,
@@ -88,6 +95,6 @@ def arbitrate(topic: str, question: str, category: str | None,
         "agreement": agreement,
         "classical_support": support,
         "confidence": round(confidence, 3),
-        "status": "verified" if verified else "review",
+        "status": verdict(agreement, support, confidence),
         "notes": card.get("notes", ""),
     }

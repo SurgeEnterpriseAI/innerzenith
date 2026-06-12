@@ -52,8 +52,12 @@ function pickVoice(voices: AzureVoice[], lang: string): { name: string; locale: 
   const base = want.split("-")[0];
   const exact = voices.filter((v) => v.Locale?.toLowerCase() === want);
   const baseMatch = voices.filter((v) => v.Locale?.toLowerCase().split("-")[0] === base);
-  const pool = exact.length ? exact : baseMatch;
-  if (!pool.length) return null;
+  const raw = exact.length ? exact : baseMatch;
+  if (!raw.length) return null;
+  // Prefer stable production voices: skip preview "HD"/Dragon variants (ShortName
+  // contains ":") and "Multilingual" voices. Fall back to raw if that empties it.
+  const stable = raw.filter((v) => !v.ShortName.includes(":") && !/Multilingual/i.test(v.ShortName));
+  const pool = stable.length ? stable : raw;
   const female = pool.filter((v) => v.Gender === "Female");
   const chosen = (female.length ? female : pool)[0];
   return { name: chosen.ShortName, locale: chosen.Locale };
@@ -78,10 +82,12 @@ export async function POST(req: NextRequest) {
     return new Response(`text too long (max ${MAX_CHARS})`, { status: 413 });
   }
 
-  // Resolve the voice for the requested language; fall back to the English voice.
+  // Resolve the voice for the requested language. English keeps the brand voice
+  // (AnaNeural); every other language gets its best stable neural voice from
+  // Azure's catalog. Falls back to the English voice if a locale has none.
   let voice = process.env.AZURE_SPEECH_VOICE || FALLBACK_VOICE;
   let xmlLang = "en-US";
-  if (lang) {
+  if (lang && lang.split("-")[0].toLowerCase() !== "en") {
     const picked = pickVoice(await getVoices(region, key), lang);
     if (picked) {
       voice = picked.name;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { retrieveClassical, ragConfigured, _debugStoreSize, _debugEmbedOk } from "@/lib/rag";
+import { retrieveClassical, retrieveVerified, ragConfigured, _debugStoreSize, _debugEmbedOk } from "@/lib/rag";
 
 // Diagnostic: confirms classical-text retrieval works in the deployed runtime.
 // GET /api/rag-test?q=...  → store size, whether query-embed succeeded, top hits.
@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
   const storeSize = _debugStoreSize();
   const queryEmbedOk = await _debugEmbedOk(q);
   const hits = await retrieveClassical(q, 5);
+  const verified = await retrieveVerified(q, 3);
   return NextResponse.json({
     configured: ragConfigured(),
     storeSize,
@@ -21,6 +22,13 @@ export async function GET(req: NextRequest) {
       location: h.location,
       similarity: Number(h.similarity.toFixed(3)),
       preview: h.content.slice(0, 120).replace(/\s+/g, " ").trim(),
+    })),
+    verifiedCount: verified.length, // curator-published cards retrieved for this query
+    verified: verified.map((v) => ({
+      topic: v.topic,
+      confidence: v.confidence,
+      similarity: Number(v.similarity.toFixed(3)),
+      preview: v.interpretation.slice(0, 120).replace(/\s+/g, " ").trim(),
     })),
   });
 }

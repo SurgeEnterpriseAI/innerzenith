@@ -12,22 +12,34 @@ const MODEL = "voyage-3.5-lite";
 type Rec = { id: string; source: string; title: string; location: string; content: string; embedding: number[] };
 let cache: Rec[] | null = null;
 
-function loadStore(): Rec[] {
-  if (cache) return cache;
+// Verified knowledge cards — dotit's own curated, cross-checked layer (curator
+// agent output). Retrieved ABOVE the classical passages as the most reliable
+// grounding. Empty until the curator publishes (rag/knowledge.json).
+type Card = { id: string; topic: string; category?: string; interpretation: string; confidence?: number; embedding: number[] };
+let knowledgeCache: Card[] | null = null;
+
+function loadFile(name: string): any[] {
   const candidates = [
-    path.join(process.cwd(), "rag", "embeddings.json"),
-    path.join(process.cwd(), "..", "rag", "embeddings.json"),
-    path.join(__dirname, "..", "rag", "embeddings.json"),
+    path.join(process.cwd(), "rag", name),
+    path.join(process.cwd(), "..", "rag", name),
+    path.join(__dirname, "..", "rag", name),
   ];
   for (const p of candidates) {
     try {
-      const data = JSON.parse(fs.readFileSync(p, "utf8"));
-      cache = data.records || [];
-      return cache!;
+      return JSON.parse(fs.readFileSync(p, "utf8")).records || [];
     } catch {}
   }
-  cache = [];
+  return [];
+}
+
+function loadStore(): Rec[] {
+  if (!cache) cache = loadFile("embeddings.json") as Rec[];
   return cache;
+}
+
+function loadKnowledge(): Card[] {
+  if (!knowledgeCache) knowledgeCache = loadFile("knowledge.json") as Card[];
+  return knowledgeCache;
 }
 
 export function ragConfigured(): boolean {
@@ -91,18 +103,71 @@ export async function retrieveClassical(
   }));
 }
 
-/** Format retrieved passages as a silent grounding block for the AI. */
+/** Retrieve the top verified knowledge cards for a query. */
+export async function retrieveVerified(
+  query: string,
+  k = 3,
+  minSim = 0.35
+): Promise<{ topic: string; interpretation: string; confidence?: number; similarity: number }[]> {
+  const store = loadKnowledge();
+  if (!store.length) return [];
+  const q = await embedQuery(query);
+  if (!q) return [];
+  return store
+    .map((c) => ({ ...c, similarity: cosine(q, c.embedding) }))
+    .filter((c) => c.similarity >= minSim)
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, k)
+    .map(({ topic, interpretation, confidence, similarity }) => ({ topic, interpretation, confidence, similarity }));
+}
+
+/**
+ * Format retrieved grounding for the AI: verified knowledge cards FIRST (the
+ * curator's cross-checked layer — most reliable), then the raw classical
+ * passages. Embeds the query once and scores both stores.
+ */
 export async function classicalGrounding(query: string, k = 4): Promise<string> {
-  const hits = await retrieveClassical(query, k);
-  if (!hits.length) return "";
-  const blocks = hits
-    .map((h, i) => `[${i + 1}] (${h.title}, ${h.location})\n${h.content.slice(0, 1200)}`)
-    .join("\n\n");
-  return `
---- CLASSICAL GROUNDING (retrieved from the source texts — reason FROM these
+  const q = await embedQuery(query);
+  if (!q) return "";
+
+  const cards = loadKnowledge();
+  const verified = cards
+    .map((c) => ({ c, s: cosine(q, c.embedding) }))
+    .filter((x) => x.s >= 0.35)
+    .sort((a, b) => b.s - a.s)
+    .slice(0, 3);
+
+  const passages = loadStore()
+    .map((r) => ({ r, s: cosine(q, r.embedding) }))
+    .filter((x) => x.s >= 0.35)
+    .sort((a, b) => b.s - a.s)
+    .slice(0, k);
+
+  if (!verified.length && !passages.length) return "";
+
+  let out = "\n";
+  if (verified.length) {
+    const blocks = verified
+      .map((x, i) => `[V${i + 1}] (${x.c.topic})\n${x.c.interpretation}`)
+      .join("\n\n");
+    out += `--- VERIFIED KNOWLEDGE (dotit's own curated knowledge base — each item has
+been cross-checked against the classical source texts, and corroborated across
+expert models where available. These are the MOST reliable; lean on them first.
+Translate to plain language; never name sources. Rule 1 still holds.) ---
+${blocks}
+---
+`;
+  }
+  if (passages.length) {
+    const blocks = passages
+      .map((x, i) => `[${i + 1}] (${x.r.title}, ${x.r.location})\n${x.r.content.slice(0, 1200)}`)
+      .join("\n\n");
+    out += `--- CLASSICAL GROUNDING (retrieved from the source texts — reason FROM these
 rules; they are the authority behind your interpretation. Translate to plain
 language; never quote or name the texts to the user. Rule 1 still holds.) ---
 ${blocks}
 ---
 `;
+  }
+  return out;
 }

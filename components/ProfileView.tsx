@@ -3,9 +3,10 @@
 // Stage 10 — Profile. Name, birth details (focused edit → recalc), current
 // city, history controls, settings, DPDP data delete.
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Profile, clearProfile, saveProfile } from "@/lib/profile";
 import { clearAllSessions } from "@/lib/sessions";
+import { LANGUAGES, matchDeviceLanguage } from "@/lib/languages";
 import AccountSync from "./AccountSync";
 
 export default function ProfileView({
@@ -20,6 +21,26 @@ export default function ProfileView({
   onChange: (p: Profile) => void;
 }) {
   const [refreshing, setRefreshing] = useState(false);
+  const [lang, setLang] = useState<string>(profile.language || "");
+
+  // Default the reading language to the device locale on first visit, and
+  // persist it (so readings + read-aloud localise immediately).
+  useEffect(() => {
+    if (!profile.language) {
+      const d = matchDeviceLanguage(typeof navigator !== "undefined" ? navigator.language : "en-US");
+      const updated = { ...profile, language: d };
+      saveProfile(updated);
+      setLang(d);
+      onChange(updated);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function changeLang(code: string) {
+    setLang(code);
+    const updated = { ...profile, language: code };
+    saveProfile(updated);
+    onChange(updated);
+  }
 
   function deleteAll() {
     if (!confirm("Delete your dotit profile and all sessions on this device? This cannot be undone.")) return;
@@ -72,6 +93,24 @@ export default function ProfileView({
         <Row label="Birth place" value={profile.birth_city ?? "—"} />
         <Row label="Current city" value={profile.current_city ?? "—"} />
         <Row label="Picture fidelity" value={fidelityLabel(profile.profile_fidelity)} />
+
+        <div className="mt-6">
+          <label className="micro-label block mb-2">Reading &amp; voice language</label>
+          <select
+            value={lang}
+            onChange={(e) => changeLang(e.target.value)}
+            className="w-full bg-[#2b2b2b] border border-white/20 focus:border-white/40 rounded-full px-4 py-3 text-sm outline-none transition appearance-none cursor-pointer"
+          >
+            {LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code} className="bg-[#2b2b2b]">
+                {l.native === l.name ? l.name : `${l.native} — ${l.name}`}
+              </option>
+            ))}
+          </select>
+          <p className="text-[#777] text-[11px] mt-2 leading-relaxed">
+            Your readings and the “listen” voice will be in this language.
+          </p>
+        </div>
 
         <button onClick={onEdit}
           className="w-full mt-6 border border-white/20 hover:border-white/40 rounded-full py-3 text-sm transition">

@@ -33,6 +33,10 @@ export type Profile = {
   // derived
   profile_fidelity: ProfileFidelity;
 
+  // preferred language for readings + read-aloud (BCP-47, e.g. "hi-IN").
+  // null until set; resolved to the device locale on first load.
+  language?: string | null;
+
   // meta
   created_at: string;
   onboarding_complete: boolean;
@@ -65,6 +69,7 @@ export function emptyProfile(): Profile {
     current_lat: null,
     current_lng: null,
     profile_fidelity: "MACRO_ONLY",
+    language: null,
     created_at: "",
     onboarding_complete: false,
     chart_profile: null,

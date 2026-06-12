@@ -8,6 +8,8 @@ import { useEffect, useRef, useState } from "react";
 import { Profile } from "@/lib/profile";
 import { stripMarkdown } from "@/lib/text";
 import { getTodaySurprise, saveTodaySurprise } from "@/lib/surprise";
+import { languageByCode } from "@/lib/languages";
+import ReadAloud from "./ReadAloud";
 
 export default function SurpriseMe({
   profile,
@@ -16,6 +18,8 @@ export default function SurpriseMe({
   profile: Profile;
   onBack: () => void;
 }) {
+  const lang = profile.language ?? null;
+  const rtl = Boolean(languageByCode(lang)?.rtl);
   const [text, setText] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [welcomeBack, setWelcomeBack] = useState(false);
@@ -50,6 +54,7 @@ export default function SurpriseMe({
             birth_time_known: profile.birth_time_known,
             profile_fidelity: profile.profile_fidelity,
           },
+          language: profile.language ?? null,
           chartProfile: profile.chart_profile ?? null,
         }),
       });
@@ -88,10 +93,11 @@ export default function SurpriseMe({
           {!text && streaming && (
             <p className="advisor-text text-[#b3b3b3] italic">reading the sky over you today…</p>
           )}
-          <div className={`advisor-text ${streaming ? "cursor-blink" : ""}`}>
+          <div className={`advisor-text group ${streaming ? "cursor-blink" : ""}`} dir={rtl ? "rtl" : undefined}>
             {stripMarkdown(text).split(/\n{2,}/).map((p, i) => (
               <p key={i}>{p}</p>
             ))}
+            {!streaming && text.length > 0 && <ReadAloud text={stripMarkdown(text)} lang={lang} />}
           </div>
         </div>
       </div>

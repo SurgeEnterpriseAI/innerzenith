@@ -8,6 +8,8 @@ import { useEffect, useRef, useState } from "react";
 import { Profile } from "@/lib/profile";
 import { stripMarkdown } from "@/lib/text";
 import { ChatMsg, Session as Sess, newId, upsertSession } from "@/lib/sessions";
+import { languageByCode } from "@/lib/languages";
+import ReadAloud from "./ReadAloud";
 
 const OPENING = `Ask Now answers one specific question at a time.
 
@@ -18,6 +20,8 @@ For example: "Will I find my lost ring? I thought of asking this on 02 Jun 2026 
 What's sitting with you?`;
 
 export default function AskNow({ profile }: { profile: Profile }) {
+  const lang = profile.language ?? null;
+  const rtl = Boolean(languageByCode(lang)?.rtl);
   const [messages, setMessages] = useState<ChatMsg[]>([
     { role: "assistant", content: OPENING },
   ]);
@@ -65,7 +69,8 @@ export default function AskNow({ profile }: { profile: Profile }) {
         body: JSON.stringify({
           messages: next,
           mode: "asknow",
-          profile: { full_name: profile.full_name, current_city: profile.current_city },
+          profile: { full_name: profile.full_name, current_city: profile.current_city, language: profile.language },
+          language: profile.language ?? null,
           // Natal chart enters quietly as a second layer (spec 8.10) — never announced.
           chartProfile: profile.chart_profile ?? null,
         }),
@@ -107,10 +112,11 @@ export default function AskNow({ profile }: { profile: Profile }) {
                 </div>
               </div>
             ) : (
-              <div key={i} className="advisor-text">
+              <div key={i} className="advisor-text group" dir={rtl ? "rtl" : undefined}>
                 {stripMarkdown(m.content).split(/\n{2,}/).map((p, j) => (
                   <p key={j}>{p}</p>
                 ))}
+                <ReadAloud text={stripMarkdown(m.content)} lang={lang} />
               </div>
             )
           )}

@@ -6,6 +6,7 @@ import { fetchChart, chartToContext, timeDrilldown, EphemerisInput, castPrashna,
 import { readEnv } from "@/lib/env";
 import { classicalGrounding } from "@/lib/rag";
 import { parseAskNow, missingPrompt } from "@/lib/asknow";
+import { languageByCode } from "@/lib/languages";
 
 const TEXT_HEADERS = {
   "Content-Type": "text/plain; charset=utf-8",
@@ -31,6 +32,7 @@ type ProfileLite = {
   birth_timezone?: string | null;
   current_city?: string | null;
   profile_fidelity?: "FULL_METRIC" | "HIGH_PARTIAL" | "MACRO_ONLY";
+  language?: string | null;
 };
 
 const promptCache: Record<string, { mtime: number; text: string }> = {};
@@ -109,6 +111,7 @@ export async function POST(req: NextRequest) {
         profile?: ProfileLite | null;
         chartProfile?: any | null;
         birth?: EphemerisInput | null;
+        language?: string | null;
       }
     | null;
   if (!body?.messages || !Array.isArray(body.messages)) {
@@ -210,6 +213,22 @@ export async function POST(req: NextRequest) {
       if (grounding) system += grounding;
     }
   } catch {}
+
+  // Localisation — write the ENTIRE reading in the user's language. Claude
+  // generates natively (higher quality than translating after); every other
+  // rule (no jargon, plain, warm, same depth) still holds. Internal context
+  // above stays English; only the user-facing output changes.
+  const lang = body.language || body.profile?.language || null;
+  if (lang) {
+    const L = languageByCode(lang);
+    const base = lang.split("-")[0].toLowerCase();
+    if (L && base !== "en") {
+      system +=
+        `\n\n--- LANGUAGE (ABSOLUTE) ---\nWrite your ENTIRE response to the user in ${L.native} (${L.name}). ` +
+        `Use natural, native phrasing a fluent ${L.name} speaker would use — never a stiff literal translation. ` +
+        `Every other rule still applies exactly: no astrological jargon, plain and warm, same depth and structure. Only the language changes.`;
+    }
+  }
 
   // Opening-turn rewriting: replace sentinels with the right instruction.
   const messages = body.messages.map((m, i) => {

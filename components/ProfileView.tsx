@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { Profile, clearProfile, saveProfile } from "@/lib/profile";
 import { clearAllSessions } from "@/lib/sessions";
 import { LANGUAGES, matchDeviceLanguage } from "@/lib/languages";
+import { useT } from "@/lib/i18n";
 import AccountSync from "./AccountSync";
 
 export default function ProfileView({
@@ -20,6 +21,7 @@ export default function ProfileView({
   onReset: () => void;
   onChange: (p: Profile) => void;
 }) {
+  const { t } = useT();
   const [refreshing, setRefreshing] = useState(false);
   const [lang, setLang] = useState<string>(profile.language || "");
 
@@ -43,16 +45,16 @@ export default function ProfileView({
   }
 
   function deleteAll() {
-    if (!confirm("Delete your dotit profile and all sessions on this device? This cannot be undone.")) return;
+    if (!confirm(t("Delete your dotit profile and all sessions on this device? This cannot be undone."))) return;
     clearProfile();
     clearAllSessions();
     onReset();
   }
 
   function clearHistory() {
-    if (!confirm("Clear all your conversation history? Your profile and chart are kept.")) return;
+    if (!confirm(t("Clear all your conversation history? Your profile and chart are kept."))) return;
     clearAllSessions();
-    alert("History cleared.");
+    alert(t("History cleared."));
   }
 
   async function refreshChart() {
@@ -86,16 +88,16 @@ export default function ProfileView({
   return (
     <div className="min-h-[100dvh] bg-[#2b2b2b] text-white px-6 py-10 pb-28">
       <div className="max-w-md mx-auto">
-        <h1 className="font-serif-i text-2xl mb-6">Profile</h1>
+        <h1 className="font-serif-i text-2xl mb-6">{t("Profile")}</h1>
 
-        <Row label="Name" value={profile.full_name} />
-        <Row label="Born" value={`${profile.birth_date ?? "—"}${profile.birth_time_local ? " · " + profile.birth_time_local : ""}${profile.birth_time_approximate ? " (approx)" : profile.birth_time_known ? "" : " · time unknown"}`} />
-        <Row label="Birth place" value={profile.birth_city ?? "—"} />
-        <Row label="Current city" value={profile.current_city ?? "—"} />
-        <Row label="Picture fidelity" value={fidelityLabel(profile.profile_fidelity)} />
+        <Row label={t("Name")} value={profile.full_name} />
+        <Row label={t("Born")} value={`${profile.birth_date ?? "—"}${profile.birth_time_local ? " · " + profile.birth_time_local : ""}${profile.birth_time_approximate ? " (" + t("approx") + ")" : profile.birth_time_known ? "" : " · " + t("time unknown")}`} />
+        <Row label={t("Birth place")} value={profile.birth_city ?? "—"} />
+        <Row label={t("Current city")} value={profile.current_city ?? "—"} />
+        <Row label={t("Picture fidelity")} value={t(fidelityLabel(profile.profile_fidelity))} />
 
         <div className="mt-6">
-          <label className="micro-label block mb-2">Reading &amp; voice language</label>
+          <label className="micro-label block mb-2">{t("Reading & voice language")}</label>
           <select
             value={lang}
             onChange={(e) => changeLang(e.target.value)}
@@ -108,38 +110,38 @@ export default function ProfileView({
             ))}
           </select>
           <p className="text-[#777] text-[11px] mt-2 leading-relaxed">
-            Your readings and the “listen” voice will be in this language.
+            {t("Your readings and the listen voice will be in this language.")}
           </p>
         </div>
 
         <button onClick={onEdit}
           className="w-full mt-6 border border-white/20 hover:border-white/40 rounded-full py-3 text-sm transition">
-          Edit birth details
+          {t("Edit birth details")}
         </button>
         <button onClick={refreshChart} disabled={refreshing}
           className="w-full mt-3 border border-white/15 hover:border-white/30 rounded-full py-3 text-sm text-[#d4d4d4] transition disabled:opacity-50">
-          {refreshing ? "Refreshing your chart…" : "Refresh my chart"}
+          {refreshing ? t("Refreshing your chart…") : t("Refresh my chart")}
         </button>
 
         <AccountSync />
 
         <div className="mt-10 pt-6 border-t border-white/10 space-y-3">
-          <p className="micro-label">History</p>
-          <button onClick={clearHistory} className="block text-sm text-[#d4d4d4]">Clear all conversation history</button>
+          <p className="micro-label">{t("History")}</p>
+          <button onClick={clearHistory} className="block text-sm text-[#d4d4d4]">{t("Clear all conversation history")}</button>
         </div>
 
         <div className="mt-8 pt-6 border-t border-white/10 space-y-4">
-          <p className="micro-label">Settings</p>
-          <button className="block text-sm text-[#d4d4d4]">Notifications</button>
-          <button className="block text-sm text-[#d4d4d4]">Privacy Policy</button>
-          <button className="block text-sm text-[#d4d4d4]">Terms of Use</button>
+          <p className="micro-label">{t("Settings")}</p>
+          <button className="block text-sm text-[#d4d4d4]">{t("Notifications")}</button>
+          <button className="block text-sm text-[#d4d4d4]">{t("Privacy Policy")}</button>
+          <button className="block text-sm text-[#d4d4d4]">{t("Terms of Use")}</button>
           <button onClick={deleteAll} className="block text-sm text-red-400/80">
-            Delete my data
+            {t("Delete my data")}
           </button>
         </div>
 
         <p className="text-[#777] text-[11px] mt-8 leading-relaxed">
-          Your data is used only to personalise your insight — never for analytics, advertising, or sharing. You can access, correct, or delete it any time. (DPDP Act 2023)
+          {t("Your data is used only to personalise your insight — never for analytics, advertising, or sharing. You can access, correct, or delete it any time. (DPDP Act 2023)")}
         </p>
       </div>
     </div>

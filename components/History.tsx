@@ -6,8 +6,10 @@
 import { useMemo, useState } from "react";
 import { loadSessions, deleteSession, Session } from "@/lib/sessions";
 import { categoryByKey } from "@/lib/categories";
+import { useT } from "@/lib/i18n";
 
 export default function History({ onOpen }: { onOpen: (s: Session) => void }) {
+  const { t } = useT();
   const [q, setQ] = useState("");
   const [version, setVersion] = useState(0); // bump to refresh after delete
   const all = useMemo(() => loadSessions(), [version]);
@@ -16,7 +18,7 @@ export default function History({ onOpen }: { onOpen: (s: Session) => void }) {
   );
 
   function remove(id: string) {
-    if (!confirm("Delete this conversation?")) return;
+    if (!confirm(t("Delete this conversation?"))) return;
     deleteSession(id);
     setVersion((v) => v + 1);
   }
@@ -24,19 +26,19 @@ export default function History({ onOpen }: { onOpen: (s: Session) => void }) {
   return (
     <div className="min-h-[100dvh] bg-[#2b2b2b] text-white px-6 py-10 pb-28">
       <div className="max-w-md mx-auto">
-        <h1 className="font-serif-i text-2xl mb-5">History</h1>
+        <h1 className="font-serif-i text-2xl mb-5">{t("History")}</h1>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="search"
+          placeholder={t("search")}
           className="w-full bg-white/5 border border-white/10 focus:border-white/30 rounded-xl px-4 py-2.5 outline-none text-sm mb-6"
         />
         {filtered.length === 0 && (
-          <p className="text-[#b3b3b3] text-sm italic font-serif-i">No sessions yet. Tap a constellation to begin.</p>
+          <p className="text-[#b3b3b3] text-sm italic font-serif-i">{t("No sessions yet. Tap a constellation to begin.")}</p>
         )}
         <ul className="space-y-1">
           {filtered.map((s, i) => {
-            const short = s.isAskNow ? "ASK NOW" : categoryByKey(s.category)?.short ?? "";
+            const short = s.isAskNow ? t("ASK NOW") : categoryByKey(s.category)?.short ?? "";
             return (
               <li key={s.id} className="flex items-center gap-2 border-b border-white/8">
                 <button

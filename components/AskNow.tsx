@@ -9,6 +9,7 @@ import { Profile } from "@/lib/profile";
 import { stripMarkdown } from "@/lib/text";
 import { ChatMsg, Session as Sess, newId, upsertSession } from "@/lib/sessions";
 import { languageByCode } from "@/lib/languages";
+import { useT } from "@/lib/i18n";
 import ReadAloud from "./ReadAloud";
 
 const OPENING = `Ask Now answers one specific question at a time.
@@ -20,10 +21,11 @@ For example: "Will I find my lost ring? I thought of asking this on 02 Jun 2026 
 What's sitting with you?`;
 
 export default function AskNow({ profile }: { profile: Profile }) {
+  const { t } = useT();
   const lang = profile.language ?? null;
   const rtl = Boolean(languageByCode(lang)?.rtl);
-  const [messages, setMessages] = useState<ChatMsg[]>([
-    { role: "assistant", content: OPENING },
+  const [messages, setMessages] = useState<ChatMsg[]>(() => [
+    { role: "assistant", content: t(OPENING) },
   ]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -128,7 +130,7 @@ export default function AskNow({ profile }: { profile: Profile }) {
             </div>
           )}
           {streaming && !buffer && (
-            <p className="advisor-text text-[#b3b3b3] italic">reading this moment…</p>
+            <p className="advisor-text text-[#b3b3b3] italic">{t("reading this moment…")}</p>
           )}
         </div>
       </div>
@@ -145,7 +147,7 @@ export default function AskNow({ profile }: { profile: Profile }) {
               }
             }}
             rows={1}
-            placeholder="your question, the moment it arrived, and the city"
+            placeholder={t("your question, the moment it arrived, and the city")}
             disabled={streaming}
             className="flex-1 bg-transparent outline-none text-[15px] py-1.5 disabled:opacity-50"
           />

@@ -6,12 +6,14 @@
 
 import { FIGURES } from "@/lib/constellations";
 import { categoryByKey, CategoryKey } from "@/lib/categories";
+import { useT } from "@/lib/i18n";
 
 export default function Constellation({
   onPick,
 }: {
   onPick: (key: CategoryKey) => void;
 }) {
+  const { t } = useT();
   return (
     <svg
       viewBox="0 0 100 178"
@@ -106,7 +108,7 @@ export default function Constellation({
               fill="#d4d4d4"
               className="select-none"
             >
-              {cat?.label}
+              {cat?.label ? t(cat.label) : ""}
             </text>
           </g>
         );

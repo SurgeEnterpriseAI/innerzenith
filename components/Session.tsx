@@ -15,6 +15,7 @@ import {
 } from "@/lib/sessions";
 import { stripMarkdown } from "@/lib/text";
 import { languageByCode } from "@/lib/languages";
+import { useT } from "@/lib/i18n";
 import ReadAloud from "./ReadAloud";
 
 export default function Session({
@@ -32,8 +33,9 @@ export default function Session({
   existing?: Sess | null;
   onBack: () => void;
 }) {
+  const { t } = useT();
   const cat = categoryByKey(category);
-  const title = isAskNow ? "Ask Now" : cat?.title ?? "Session";
+  const title = isAskNow ? t("Ask Now") : t(cat?.title ?? "Session");
   const lang = profile.language ?? null;
   const rtl = Boolean(languageByCode(lang)?.rtl);
 
@@ -181,7 +183,7 @@ export default function Session({
               }
             }}
             rows={1}
-            placeholder={isAskNow ? "your one specific question" : "share what's true for you"}
+            placeholder={isAskNow ? t("your one specific question") : t("share what's true for you")}
             disabled={streaming}
             className="flex-1 bg-transparent outline-none text-[15px] py-1.5 disabled:opacity-50"
           />

@@ -25,20 +25,43 @@ function probeVoice(): Promise<boolean> {
   return probe;
 }
 
+const SPEEDS = [1, 1.5, 2, 3, 0.5];
+const SPEED_KEY = "dotit.tts.speed";
+
+function loadSpeed(): number {
+  try {
+    const v = Number(localStorage.getItem(SPEED_KEY));
+    return SPEEDS.includes(v) ? v : 1;
+  } catch {
+    return 1;
+  }
+}
+
 export default function ReadAloud({ text, lang }: { text: string; lang?: string | null }) {
   const [on, setOn] = useState<boolean>(voiceOnCache ?? false);
   const [state, setState] = useState<"idle" | "loading" | "playing">("idle");
+  const [speed, setSpeed] = useState<number>(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     let alive = true;
     probeVoice().then((v) => alive && setOn(v));
+    setSpeed(loadSpeed());
     return () => {
       alive = false;
     };
   }, []);
 
   if (!on || !text) return null;
+
+  function cycleSpeed() {
+    const next = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
+    setSpeed(next);
+    try {
+      localStorage.setItem(SPEED_KEY, String(next));
+    } catch {}
+    if (audioRef.current) audioRef.current.playbackRate = next; // apply live
+  }
 
   async function toggle() {
     if (state === "playing" && audioRef.current) {
@@ -57,6 +80,7 @@ export default function ReadAloud({ text, lang }: { text: string; lang?: string 
       if (!res.ok) throw new Error("voice unavailable");
       const blob = await res.blob();
       const audio = new Audio(URL.createObjectURL(blob));
+      audio.playbackRate = speed;
       audioRef.current = audio;
       audio.onended = () => setState("idle");
       audio.onerror = () => setState("idle");
@@ -67,14 +91,23 @@ export default function ReadAloud({ text, lang }: { text: string; lang?: string 
     }
   }
 
+  const fmt = (n: number) => (Number.isInteger(n) ? `${n}×` : `${n}×`);
+
   return (
-    <button
-      onClick={toggle}
-      className="mt-3 text-[11px] text-[#b3b3b3] hover:text-white transition opacity-0 group-hover:opacity-100 focus:opacity-100"
-    >
-      {state === "idle" && "▷ listen"}
-      {state === "loading" && "… preparing"}
-      {state === "playing" && "■ stop"}
-    </button>
+    <span className="mt-3 inline-flex items-center gap-3 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition">
+      <button onClick={toggle} className="text-[11px] text-[#b3b3b3] hover:text-white transition">
+        {state === "idle" && "▷ listen"}
+        {state === "loading" && "… preparing"}
+        {state === "playing" && "■ stop"}
+      </button>
+      <button
+        onClick={cycleSpeed}
+        title="Playback speed"
+        aria-label="Playback speed"
+        className="text-[11px] text-[#777] hover:text-white transition tabular-nums"
+      >
+        {fmt(speed)}
+      </button>
+    </span>
   );
 }

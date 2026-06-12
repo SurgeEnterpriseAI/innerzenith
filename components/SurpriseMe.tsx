@@ -9,6 +9,7 @@ import { Profile } from "@/lib/profile";
 import { stripMarkdown } from "@/lib/text";
 import { getTodaySurprise, saveTodaySurprise } from "@/lib/surprise";
 import { languageByCode } from "@/lib/languages";
+import { useT } from "@/lib/i18n";
 import ReadAloud from "./ReadAloud";
 
 export default function SurpriseMe({
@@ -18,6 +19,7 @@ export default function SurpriseMe({
   profile: Profile;
   onBack: () => void;
 }) {
+  const { t } = useT();
   const lang = profile.language ?? null;
   const rtl = Boolean(languageByCode(lang)?.rtl);
   const [text, setText] = useState("");
@@ -87,11 +89,11 @@ export default function SurpriseMe({
         <div className="max-w-2xl mx-auto">
           {welcomeBack && (
             <p className="font-serif-i italic text-sm text-[#b3b3b3] mb-5">
-              You've already drawn today's reading — here it is again. A fresh one arrives tomorrow.
+              {t("You've already drawn today's reading — here it is again. A fresh one arrives tomorrow.")}
             </p>
           )}
           {!text && streaming && (
-            <p className="advisor-text text-[#b3b3b3] italic">reading the sky over you today…</p>
+            <p className="advisor-text text-[#b3b3b3] italic">{t("reading the sky over you today…")}</p>
           )}
           <div className={`advisor-text group ${streaming ? "cursor-blink" : ""}`} dir={rtl ? "rtl" : undefined}>
             {stripMarkdown(text).split(/\n{2,}/).map((p, i) => (

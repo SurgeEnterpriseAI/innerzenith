@@ -2,6 +2,8 @@
 
 // Stage 7.3 — bottom navigation, 4 items.
 
+import { useT } from "@/lib/i18n";
+
 export type Tab = "home" | "asknow" | "history" | "profile";
 
 export default function BottomNav({
@@ -11,11 +13,12 @@ export default function BottomNav({
   active: Tab;
   onChange: (t: Tab) => void;
 }) {
+  const { t } = useT();
   const items: { key: Tab; label: string; icon: JSX.Element }[] = [
-    { key: "home", label: "Home", icon: <HomeIcon /> },
-    { key: "asknow", label: "Ask Now", icon: <BoltIcon /> },
-    { key: "history", label: "History", icon: <HistoryIcon /> },
-    { key: "profile", label: "Profile", icon: <UserIcon /> },
+    { key: "home", label: t("Home"), icon: <HomeIcon /> },
+    { key: "asknow", label: t("Ask Now"), icon: <BoltIcon /> },
+    { key: "history", label: t("History"), icon: <HistoryIcon /> },
+    { key: "profile", label: t("Profile"), icon: <UserIcon /> },
   ];
   return (
     <nav className="fixed bottom-0 inset-x-0 bg-[#2b2b2b]/95 backdrop-blur border-t border-white/10 z-20">

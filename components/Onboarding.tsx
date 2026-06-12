@@ -12,6 +12,7 @@ import {
   saveProfile,
 } from "@/lib/profile";
 import TimeInput from "./TimeInput";
+import { useT } from "@/lib/i18n";
 
 type GeoPick = {
   name: string;
@@ -42,6 +43,7 @@ const STEPS = [
 ];
 
 export default function Onboarding({ onComplete }: { onComplete: (p: Profile) => void }) {
+  const { t } = useT();
   const [step, setStep] = useState(0); // 0-indexed
   const [connecting, setConnecting] = useState(false);
   const shapeRef = useRef(SHAPES[Math.floor(stableRandom() * SHAPES.length)]);
@@ -146,11 +148,11 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
         <FormingShape shape={shapeRef.current} litCount={step + 1} />
       </div>
 
-      <p className="micro-label text-center">Dot {s.n} of 7{s.n === 5 ? " — optional" : ""}</p>
+      <p className="micro-label text-center">{t("Dot {n} of 7", { n: s.n })}{s.n === 5 ? t(" — optional") : ""}</p>
 
       <div className="flex-1 flex flex-col justify-center max-w-md w-full mx-auto fade-up" key={step}>
-        <h2 className="font-serif-i text-2xl leading-snug mb-2">{s.title}</h2>
-        <p className="text-[#b3b3b3] text-sm mb-8">{s.sub}</p>
+        <h2 className="font-serif-i text-2xl leading-snug mb-2">{t(s.title)}</h2>
+        <p className="text-[#b3b3b3] text-sm mb-8">{t(s.sub)}</p>
 
         {step === 0 && (
           <input
@@ -158,13 +160,13 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && next()}
-            placeholder="your first name"
+            placeholder={t("your first name")}
             className="bg-transparent border-b border-[#b3b3b3]/40 focus:border-white outline-none text-xl py-2 font-serif-i"
           />
         )}
 
         {step === 1 && (
-          <CityPicker value={currentCity} onPick={setCurrentCity} placeholder="your current city" />
+          <CityPicker value={currentCity} onPick={setCurrentCity} placeholder={t("your current city")} />
         )}
 
         {step === 2 && (
@@ -178,46 +180,46 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
         )}
 
         {step === 3 && (
-          <CityPicker value={birthCity} onPick={setBirthCity} placeholder="city or town of birth" />
+          <CityPicker value={birthCity} onPick={setBirthCity} placeholder={t("city or town of birth")} />
         )}
 
         {step === 4 && (
           <div className="space-y-3">
-            <TimeOption active={timeMode === "known"} onClick={() => setTimeMode("known")} label="Yes, I know it" />
+            <TimeOption active={timeMode === "known"} onClick={() => setTimeMode("known")} label={t("Yes, I know it")} />
             {timeMode === "known" && (
               <div className="py-1">
                 <TimeInput value={birthTime} onChange={setBirthTime} />
               </div>
             )}
-            <TimeOption active={timeMode === "approx"} onClick={() => setTimeMode("approx")} label="Approximate time" />
+            <TimeOption active={timeMode === "approx"} onClick={() => setTimeMode("approx")} label={t("Approximate time")} />
             {timeMode === "approx" && (
               <>
                 <div className="py-1">
                   <TimeInput value={birthTime} onChange={setBirthTime} />
                 </div>
                 <p className="text-[#b3b3b3] text-xs leading-relaxed">
-                  Without your birth time some parts of your picture are approximate. As we talk I&#39;ll refine it. You can also explore Ask Now.
+                  {t("Without your birth time some parts of your picture are approximate. As we talk I'll refine it. You can also explore Ask Now.")}
                 </p>
               </>
             )}
-            <TimeOption active={timeMode === "unknown"} onClick={() => setTimeMode("unknown")} label="I don't know my birth time" />
+            <TimeOption active={timeMode === "unknown"} onClick={() => setTimeMode("unknown")} label={t("I don't know my birth time")} />
             {timeMode === "unknown" && (
-              <p className="text-[#b3b3b3] text-xs leading-relaxed">No problem. You can also explore Ask Now.</p>
+              <p className="text-[#b3b3b3] text-xs leading-relaxed">{t("No problem. You can also explore Ask Now.")}</p>
             )}
           </div>
         )}
 
         {step === 5 && (
           <div className="flex gap-3">
-            <GenderOption active={gender === "M"} onClick={() => setGender("M")} label="Man" />
-            <GenderOption active={gender === "F"} onClick={() => setGender("F")} label="Woman" />
+            <GenderOption active={gender === "M"} onClick={() => setGender("M")} label={t("Man")} />
+            <GenderOption active={gender === "F"} onClick={() => setGender("F")} label={t("Woman")} />
           </div>
         )}
 
         {step === 6 && (
           <div className="space-y-4">
             <p className="text-[#d4d4d4] text-sm leading-relaxed">
-              By continuing you agree to our Terms of Use and Privacy Policy. Your personal data is used only to personalise your insight.
+              {t("By continuing you agree to our Terms of Use and Privacy Policy. Your personal data is used only to personalise your insight.")}
             </p>
             <label className="flex items-start gap-3 cursor-pointer">
               <input
@@ -226,7 +228,7 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
                 onChange={(e) => setAgreed(e.target.checked)}
                 className="mt-1 accent-white w-4 h-4"
               />
-              <span className="text-sm font-serif-i">I agree and I&#39;m ready to see my picture.</span>
+              <span className="text-sm font-serif-i">{t("I agree and I'm ready to see my picture.")}</span>
             </label>
           </div>
         )}
@@ -238,14 +240,14 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
           disabled={!canAdvance()}
           className="w-full bg-white text-[#2b2b2b] disabled:bg-[#555] disabled:text-[#999] rounded-full py-3.5 font-medium text-sm transition"
         >
-          {step === 6 ? "Agree" : "Continue"}
+          {step === 6 ? t("Agree") : t("Continue")}
         </button>
         {step > 0 && (
           <button
             onClick={() => setStep(step - 1)}
             className="w-full text-[#b3b3b3] text-xs mt-3 py-1"
           >
-            back
+            {t("back")}
           </button>
         )}
       </div>

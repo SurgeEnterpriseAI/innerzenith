@@ -19,3 +19,4 @@ next-env.d.ts.bak
 rag/_pdfs/
 rag/_raw/
 ephemeris-service/_ragtmp/
+rag/_drive/

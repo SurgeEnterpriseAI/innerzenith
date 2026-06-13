@@ -23,7 +23,9 @@ except Exception:
     pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DRIVE = os.path.join(HERE, "_drive")
+# Optional 1st arg = a folder of already-downloaded PDFs; else rag/_drive/.
+_ARG_DIR = sys.argv[1] if len(sys.argv) > 1 and os.path.isdir(sys.argv[1]) else None
+DRIVE = _ARG_DIR or os.path.join(HERE, "_drive")
 CHUNKS = os.path.join(HERE, "chunks.jsonl")
 FOLDER_URL = "https://drive.google.com/drive/folders/1IAPL4EEkigP2TqRVIdCfMYExegttalbX"
 CHUNK, OVERLAP, PAGE = 3200, 400, 2500

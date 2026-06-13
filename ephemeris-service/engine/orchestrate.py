@@ -79,6 +79,20 @@ def compute_profile(
         yogas = []
         vedic_block["ashtakavarga"] = {"available": False, "reason": "needs birth time"}
         vedic_block["narayana_dasha"] = v.narayana_dasha(asc_idx, planets, birth_dt_naive, None)
+        # moon_sign_uncertain (6.4): with no birth time the Moon may cross a sign
+        # boundary during the birth date. If so, store both candidate signs and
+        # flag — the AI asks one clarifying question in the first relevant session.
+        try:
+            m0 = v.planet_positions(build_time_context(birth_date, "00:01", lat, lon, tz_name))["Moon"]["total_degrees"]
+            m1 = v.planet_positions(build_time_context(birth_date, "23:59", lat, lon, tz_name))["Moon"]["total_degrees"]
+            s0, s1 = v.SIGNS[v.sign_index(m0)], v.SIGNS[v.sign_index(m1)]
+            if s0 != s1:
+                vedic_block["moon_sign_uncertain"] = True
+                vedic_block["possible_moon_signs"] = [s0, s1]
+            else:
+                vedic_block["moon_sign_uncertain"] = False
+        except Exception:
+            vedic_block["moon_sign_uncertain"] = False
 
     # Vimshottari works from Moon (available even without exact time, less precise)
     dasha = v.vimshottari_dasha(planets["Moon"]["total_degrees"], tc.local_dt.replace(tzinfo=None))
@@ -121,7 +135,7 @@ def compute_profile(
 
     return {
         "meta": {
-            "engine_version": "1.0",
+            "engine_version": "5.1",
             "computed_at": now.isoformat(),
             "profile_fidelity": fidelity,
             "time_context": tc.as_dict(),

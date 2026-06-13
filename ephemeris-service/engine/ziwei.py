@@ -25,6 +25,35 @@ _ZIWEI_GROUP = ["Zi Wei", "Tian Ji", None, "Tai Yang", "Wu Qu",
 _TIANFU_GROUP = ["Tian Fu", "Tai Yin", "Tan Lang", "Ju Men", "Tian Xiang",
                  "Tian Liang", "Qi Sha", None, None, None, "Po Jun"]
 
+# Five Elements Bureau (Wu Xing Ju) via NaYin (五行纳音) of the Life Palace
+# stem+branch. NAYIN30[jiazi // 2] gives the element of each of the 30 jiazi
+# pairs; bureau number drives Zi Wei seating + Da Xian start age (spec 5.1/5.5).
+_NAYIN30 = ["Metal", "Fire", "Wood", "Earth", "Metal", "Fire", "Water", "Earth",
+            "Metal", "Wood", "Water", "Earth", "Fire", "Wood", "Water", "Metal",
+            "Fire", "Wood", "Earth", "Metal", "Fire", "Water", "Earth", "Metal",
+            "Wood", "Water", "Earth", "Fire", "Wood", "Water"]
+_BUREAU_NUM = {"Water": 2, "Wood": 3, "Metal": 4, "Earth": 5, "Fire": 6}
+
+
+def _tiger_stem(year_stem: int) -> int:
+    """Wu Hu Dun (Five Tigers) — Heavenly Stem of the Yin (Tiger) palace from
+    the birth-year stem. Stems then increment by branch around the chart."""
+    return ((year_stem % 5) * 2 + 2) % 10
+
+
+def _palace_stem(year_stem: int, branch_idx: int) -> int:
+    """Stem of the palace sitting on a given branch (Yin=2 is the Tiger anchor)."""
+    return (_tiger_stem(year_stem) + (branch_idx - 2)) % 10
+
+
+def _wu_xing_ju(year_stem: int, life_branch: int):
+    """Five Elements Bureau from the Life Palace stem+branch via NaYin."""
+    stem = _palace_stem(year_stem, life_branch)
+    jiazi = next(i for i in range(60) if i % 10 == stem and i % 12 == life_branch)
+    elem = _NAYIN30[jiazi // 2]
+    num = _BUREAU_NUM[elem]
+    return elem, num, f"{elem} Bureau {num}"
+
 
 def _lunar_month_day(jd_ut: float):
     """Approximate Chinese lunar month & day from the moon-sun elongation.
@@ -64,6 +93,7 @@ def ziwei_chart(tc, gender: str) -> dict:
 
     life_idx = _life_palace_index(lunar_month, hour_branch)
     body_idx = _body_palace_index(lunar_month, hour_branch)
+    year_stem = _year_stem(tc)
 
     # assign the 12 palaces counter-clockwise from Life Palace
     palaces = {}
@@ -74,17 +104,21 @@ def ziwei_chart(tc, gender: str) -> dict:
             "domain": PALACE_EN[pal], "branch_index": branch_idx, "stars": [],
         }
 
-    # place Zi Wei by birth day (classical Wu Hu / table) — simplified mod
-    ziwei_pos = _ziwei_position(lunar_day)
+    # Five Elements Bureau (Wu Xing Ju) → drives Zi Wei seating + Da Xian start.
+    ju_elem, ju_num, ju_str = _wu_xing_ju(year_stem, life_idx)
+
+    # place Zi Wei via the proper Wu Ju (bureau + lunar day) algorithm.
+    ziwei_pos = _ziwei_position(lunar_day, ju_num)
     _place_stars(palaces, ziwei_pos)
 
     # 4 Hua transformations from birth-year stem
-    year_stem = _year_stem(tc)
     hua = HUA_BY_STEM.get(STEMS[year_stem], {})
 
-    # brightness (simplified: assign by palace-star pairing tier)
     return {
         "available": True,
+        "wu_xing_ju": ju_str,
+        "bureau_element": ju_elem,
+        "bureau_number": ju_num,
         "life_palace": _palace_at_branch(palaces, life_idx),
         "body_palace": BRANCHES[body_idx],
         "body_palace_name": _palace_name_at_branch(palaces, body_idx),
@@ -92,7 +126,7 @@ def ziwei_chart(tc, gender: str) -> dict:
         "hua_transformations": hua,
         "san_fang_si_zheng": _palace_groupings(),
         "opposition_pairs": _opposition_pairs(),
-        "da_xian": _da_xian(palaces, life_idx, tc, gender),
+        "da_xian": _da_xian(palaces, life_idx, tc, gender, ju_num, year_stem),
     }
 
 
@@ -110,9 +144,21 @@ def _body_palace_index(lunar_month: int, hour_branch: int) -> int:
     return body
 
 
-def _ziwei_position(lunar_day: int) -> int:
-    # simplified Zi Wei placement by day (full version uses the Wu-Ju table).
-    return (lunar_day - 1) % 12
+def _ziwei_position(lunar_day: int, bureau: int) -> int:
+    """Classical Wu Ju Zi Wei placement. Find the smallest multiple of the
+    bureau number >= the lunar day; the quotient counts palaces forward from
+    Yin (寅), then the 'borrowed' remainder shifts forward if even, back if odd.
+    Returns the branch index where Zi Wei sits (Yin = branch 2 base)."""
+    m = lunar_day
+    while m % bureau != 0:
+        m += 1
+    quotient = m // bureau
+    borrowed = m - lunar_day
+    if borrowed % 2 == 0:
+        idx = quotient - 1 + borrowed
+    else:
+        idx = quotient - 1 - borrowed
+    return (2 + idx) % 12
 
 
 def _place_stars(palaces, ziwei_pos):
@@ -171,14 +217,15 @@ def _opposition_pairs():
     }
 
 
-def _da_xian(palaces, life_idx, tc, gender):
-    """10-year period cycles — direction by year stem polarity + gender."""
-    ystem = _year_stem(tc)
-    year_yang = ystem % 2 == 0
+def _da_xian(palaces, life_idx, tc, gender, bureau_num, year_stem):
+    """10-year period cycles — start age from the Five Elements Bureau, direction
+    by year-stem polarity + gender. Each period also carries its own Flying Star
+    Hua transformations, derived from that palace's stem (spec 5.9)."""
+    year_yang = year_stem % 2 == 0
     male = gender == "M"
     forward = (year_yang and male) or (not year_yang and not male)
+    start_age = bureau_num  # Water 2, Wood 3, Metal 4, Earth 5, Fire 6
     periods = []
-    start_age = 6  # placeholder start age band (1-10); refined by Jie in full impl
     for i in range(9):
         b = (life_idx + i) % 12 if forward else (life_idx - i) % 12
         name = None
@@ -186,6 +233,11 @@ def _da_xian(palaces, life_idx, tc, gender):
         for nm, p in palaces.items():
             if p["branch_index"] == b:
                 name, stars = nm, p["stars"]
-        periods.append({"from_age": start_age + i * 10, "to_age": start_age + i * 10 + 9,
-                        "palace": name, "stars": stars})
+        period_stem = _palace_stem(year_stem, b)
+        flying = HUA_BY_STEM.get(STEMS[period_stem], {})
+        periods.append({
+            "from_age": start_age + i * 10, "to_age": start_age + i * 10 + 9,
+            "palace": name, "stars": stars,
+            "flying_stars": flying,  # Da Xian Hua transformations for this period
+        })
     return {"direction": "forward" if forward else "reverse", "periods": periods}

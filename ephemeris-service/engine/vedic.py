@@ -772,6 +772,7 @@ def _narayana_from(dasha_lagna_idx: int, planets: dict, birth_dt: datetime,
     # backward if EVEN.
     lagna_sign = SIGNS[dasha_lagna_idx]
     forward = lagna_sign in ODD_SIGNS
+    rasi_matrix = rasi_drishti()
     timeline = []
     cursor = birth_dt
     for i in range(12):
@@ -785,6 +786,7 @@ def _narayana_from(dasha_lagna_idx: int, planets: dict, birth_dt: datetime,
             "sign": sgn, "sign_lord": lord,
             "direction": "forward" if forward else "reverse",
             "sub_period_rule": _narayana_subrule(sgn),
+            "three_parts": _narayana_three_parts(sidx, planets, rasi_matrix),
             "antardasha_sequence": _narayana_antardashas(sidx, planets),
             "start": cursor.date().isoformat(),
             "end": _add_years(cursor, years).date().isoformat(),
@@ -819,6 +821,41 @@ def _narayana_subrule(sign: str) -> str:
     if m == "fixed":
         return "sign-lord → sign → aspecting/occupying (Rasi Drishti)"
     return "aspecting/occupying (Rasi Drishti) → sign → sign-lord"
+
+
+_NARAYANA_GRAHAS = {"Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"}
+
+
+def _narayana_three_parts(sidx: int, planets: dict, rasi_matrix: dict) -> list:
+    """Three-Parts Rule (2.13) — each Mahadasha splits into three equal
+    chronological thirds. The driver of each third is resolved here (sign, sign
+    lord, and the planets aspecting/occupying the sign by RASI DRISHTI only).
+    Ordering depends on the sign's modality. No dates — a query-time lens."""
+    sgn = SIGNS[sidx]
+    lord = SIGN_LORDS[sgn]
+
+    def in_sign(p):
+        return isinstance(planets.get(p), dict) and "total_degrees" in planets[p] \
+            and sign_index(planets[p]["total_degrees"]) == sidx
+
+    aspecting_signs = signs_aspecting(sidx, rasi_matrix)
+
+    def aspects(p):
+        return isinstance(planets.get(p), dict) and "total_degrees" in planets[p] \
+            and SIGNS[sign_index(planets[p]["total_degrees"])] in aspecting_signs
+
+    drivers = sorted({p for p in _NARAYANA_GRAHAS if in_sign(p) or aspects(p)})
+    part_sign = {"driver": "sign", "of": sgn}
+    part_lord = {"driver": "sign_lord", "of": lord}
+    part_asp = {"driver": "aspecting_or_occupying", "of": drivers}
+    m = MODALITY[sgn]
+    if m == "movable":
+        order = [part_sign, part_lord, part_asp]
+    elif m == "fixed":
+        order = [part_lord, part_sign, part_asp]
+    else:  # dual
+        order = [part_asp, part_sign, part_lord]
+    return [{"part": i + 1, **o} for i, o in enumerate(order)]
 
 
 def narayana_dasha(asc_sign_idx: int, planets: dict, birth_dt: datetime,

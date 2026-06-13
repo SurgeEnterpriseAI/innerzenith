@@ -7,8 +7,10 @@
 
 import { useEffect, useState } from "react";
 import { syncConfigured, syncWhoami, sendMagicLink, signOut } from "@/lib/sync";
+import { useT } from "@/lib/i18n";
 
 export default function AccountSync() {
+  const { t } = useT();
   const [ready, setReady] = useState(false);
   const [email, setEmail] = useState("");
   const [me, setMe] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export default function AccountSync() {
   async function send() {
     const addr = email.trim();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)) {
-      setError("Enter a valid email.");
+      setError(t("Enter a valid email."));
       return;
     }
     setBusy(true);
@@ -44,7 +46,7 @@ export default function AccountSync() {
     const res = await sendMagicLink(addr);
     setBusy(false);
     if (res.ok) setSent(true);
-    else setError(res.error || "Could not send the link. Try again.");
+    else setError(res.error || t("Could not send the link. Try again."));
   }
 
   async function out() {
@@ -58,36 +60,32 @@ export default function AccountSync() {
 
   return (
     <div className="mt-8 pt-6 border-t border-white/10">
-      <p className="micro-label mb-3">Sync across devices</p>
+      <p className="micro-label mb-3">{t("Sync across devices")}</p>
 
       {me ? (
         <div className="space-y-2">
           <p className="text-sm text-[#d4d4d4]">
-            Signed in as <span className="text-white">{me}</span>
+            {t("Signed in as")} <span className="text-white">{me}</span>
           </p>
           <p className="text-[#777] text-[11px] leading-relaxed">
-            Your profile, chart, and conversations are saved to your account and
-            follow you to any device you sign in on.
+            {t("Your profile, chart, and conversations are saved to your account and follow you to any device you sign in on.")}
           </p>
           <button
             onClick={out}
             disabled={busy}
             className="block text-sm text-[#d4d4d4] mt-2 disabled:opacity-50"
           >
-            Sign out
+            {t("Sign out")}
           </button>
         </div>
       ) : sent ? (
         <p className="text-sm text-[#d4d4d4] leading-relaxed">
-          Check your inbox — we sent a sign-in link to{" "}
-          <span className="text-white">{email.trim()}</span>. Open it on any
-          device to sync your readings there.
+          {t("Check your inbox — we sent a sign-in link to {email}. Open it on any device to sync your readings there.", { email: email.trim() })}
         </p>
       ) : (
         <div className="space-y-3">
           <p className="text-[#777] text-[11px] leading-relaxed">
-            Add your email to keep your profile and history safe and use dotit on
-            more than one device. No password — we email you a sign-in link.
+            {t("Add your email to keep your profile and history safe and use dotit on more than one device. No password — we email you a sign-in link.")}
           </p>
           <input
             type="email"
@@ -105,7 +103,7 @@ export default function AccountSync() {
             disabled={busy}
             className="w-full border border-white/20 hover:border-white/40 rounded-full py-3 text-sm transition disabled:opacity-50"
           >
-            {busy ? "Sending…" : "Email me a sign-in link"}
+            {busy ? t("Sending…") : t("Email me a sign-in link")}
           </button>
         </div>
       )}

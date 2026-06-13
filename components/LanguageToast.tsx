@@ -1,26 +1,34 @@
 "use client";
 
-// A small, auto-disappearing nudge shown when dotit opened in a non-English
-// language (auto-detected from location). Gives a one-tap escape hatch back to
-// English. The text stays in English on purpose — it's the fallback offer, so
-// an English-preferring user must be able to read it. Shows once per device.
+// A small, auto-disappearing nudge. dotit loads in English by default; if we
+// detect the visitor's regional language (from their location, e.g. Bengaluru
+// → Kannada), this offers a one-tap switch into it. The native script name is
+// shown so a regional speaker recognises it instantly. Shows once per device.
 
 import { useEffect, useState } from "react";
 import { languageByCode } from "@/lib/languages";
 
-const SEEN_KEY = "dotit.langToastSeen";
+const SEEN_KEY = "dotit.langOfferSeen";
 
 export default function LanguageToast({
   locale,
-  onEnglish,
+  suggested,
+  onSwitch,
 }: {
   locale: string;
-  onEnglish: () => void;
+  suggested: string;
+  onSwitch: () => void;
 }) {
   const [show, setShow] = useState(false);
 
+  const offerBase = (suggested || "").split("-")[0];
+  const currentBase = (locale || "").split("-")[0];
+  // Only offer when there's a non-English regional language AND we're currently
+  // showing English (don't nudge if they're already in their language).
+  const eligible = offerBase && offerBase !== "en" && currentBase === "en";
+
   useEffect(() => {
-    if (!locale || locale.split("-")[0] === "en") return;
+    if (!eligible) return;
     try {
       if (localStorage.getItem(SEEN_KEY)) return;
     } catch {}
@@ -30,7 +38,7 @@ export default function LanguageToast({
       seen();
     }, 8000);
     return () => clearTimeout(id);
-  }, [locale]);
+  }, [eligible]);
 
   function seen() {
     try {
@@ -38,32 +46,35 @@ export default function LanguageToast({
     } catch {}
   }
 
-  function pickEnglish() {
+  function pick() {
     seen();
     setShow(false);
-    onEnglish();
+    onSwitch();
   }
 
   if (!show) return null;
 
-  const native = languageByCode(locale)?.native || "";
+  const lang = languageByCode(suggested);
+  const native = lang?.native || "";
+  const english = lang?.name || "";
 
   return (
     <div
       dir="ltr"
       className="fixed left-1/2 -translate-x-1/2 bottom-24 z-40 fade-up
-                 flex items-center gap-3 max-w-[92vw]
+                 flex items-center gap-2 max-w-[94vw]
                  bg-[#1e1e1e]/95 backdrop-blur border border-white/15
-                 rounded-full pl-4 pr-2 py-2 shadow-lg"
+                 rounded-full pl-2 pr-2 py-2 shadow-lg"
     >
-      <span className="text-[13px] text-[#d4d4d4] whitespace-nowrap">
-        Showing in {native}. Continue in English?
-      </span>
       <button
-        onClick={pickEnglish}
-        className="text-[13px] font-medium text-white bg-white/15 hover:bg-white/25 rounded-full px-3 py-1 transition whitespace-nowrap"
+        onClick={pick}
+        className="flex items-center gap-2 text-[13px] text-white bg-white/12 hover:bg-white/22
+                   rounded-full px-3.5 py-1.5 transition whitespace-nowrap"
       >
-        English
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="opacity-80">
+          <circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" />
+        </svg>
+        <span>Read in <span className="font-medium">{native}</span></span>
       </button>
       <button
         onClick={() => {

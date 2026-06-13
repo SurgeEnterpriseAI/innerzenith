@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Profile, deriveFidelity, saveProfile } from "@/lib/profile";
+import { useT } from "@/lib/i18n";
 import TimeInput from "./TimeInput";
 
 type GeoPick = { name: string; country: string | null; latitude: number; longitude: number; timezone: string | null };
@@ -20,6 +21,7 @@ export default function ProfileEdit({
   onSaved: (p: Profile) => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   const [name, setName] = useState(profile.full_name);
   const [birthDate, setBirthDate] = useState(profile.birth_date ?? "");
   const [timeMode, setTimeMode] = useState<"known" | "approx" | "unknown">(
@@ -81,7 +83,7 @@ export default function ProfileEdit({
   if (saving) {
     return (
       <div className="min-h-[100dvh] bg-[#2b2b2b] text-white flex items-center justify-center">
-        <p className="font-serif-i text-[#d4d4d4]">Reconnecting your dots…</p>
+        <p className="font-serif-i text-[#d4d4d4]">{t("Reconnecting your dots…")}</p>
       </div>
     );
   }
@@ -89,26 +91,26 @@ export default function ProfileEdit({
   return (
     <div className="min-h-[100dvh] bg-[#2b2b2b] text-white px-6 py-10 pb-28">
       <div className="max-w-md mx-auto">
-        <button onClick={onCancel} className="text-[#b3b3b3] hover:text-white text-sm mb-4">‹ back</button>
-        <h1 className="font-serif-i text-2xl mb-2">Edit birth details</h1>
+        <button onClick={onCancel} className="text-[#b3b3b3] hover:text-white text-sm mb-4">‹ {t("back")}</button>
+        <h1 className="font-serif-i text-2xl mb-2">{t("Edit birth details")}</h1>
         <p className="text-[#b3b3b3] text-xs leading-relaxed mb-6">
-          Updating these will recalculate your entire chart. Your past conversations stay in History; future sessions use your new chart, and each area opens fresh.
+          {t("Updating these will recalculate your entire chart. Your past conversations stay in History; future sessions use your new chart, and each area opens fresh.")}
         </p>
 
-        <label className="micro-label block mb-1">Name</label>
+        <label className="micro-label block mb-1">{t("Name")}</label>
         <input value={name} onChange={(e) => setName(e.target.value)}
           className="w-full bg-transparent border-b border-[#b3b3b3]/40 focus:border-white outline-none text-lg py-2 mb-5 font-serif-i" />
 
-        <label className="micro-label block mb-1">Birth date</label>
+        <label className="micro-label block mb-1">{t("Birth date")}</label>
         <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)}
           className="w-full bg-transparent border-b border-[#b3b3b3]/40 focus:border-white outline-none text-lg py-2 mb-5 [color-scheme:dark]" />
 
-        <label className="micro-label block mb-2">Birth time</label>
+        <label className="micro-label block mb-2">{t("Birth time")}</label>
         <div className="flex gap-2 mb-3">
           {(["known", "approx", "unknown"] as const).map((m) => (
             <button key={m} onClick={() => setTimeMode(m)}
               className={`flex-1 py-2 rounded-lg border text-xs transition ${timeMode === m ? "border-white bg-white/5" : "border-[#b3b3b3]/30"}`}>
-              {m === "known" ? "Exact" : m === "approx" ? "Approx" : "Unknown"}
+              {m === "known" ? t("Exact") : m === "approx" ? t("Approx") : t("Unknown")}
             </button>
           ))}
         </div>
@@ -116,12 +118,12 @@ export default function ProfileEdit({
           <div className="mb-5"><TimeInput value={birthTime} onChange={setBirthTime} /></div>
         )}
 
-        <label className="micro-label block mb-1">Birth place</label>
+        <label className="micro-label block mb-1">{t("Birth place")}</label>
         <CityPicker value={birthCity} onPick={setBirthCity} />
 
         <button onClick={save}
           className="w-full mt-8 bg-white text-[#2b2b2b] rounded-full py-3.5 font-medium text-sm">
-          Save and recalculate
+          {t("Save and recalculate")}
         </button>
       </div>
     </div>
@@ -129,6 +131,7 @@ export default function ProfileEdit({
 }
 
 function CityPicker({ value, onPick }: { value: GeoPick | null; onPick: (g: GeoPick | null) => void }) {
+  const { t } = useT();
   const [q, setQ] = useState(value?.name ?? "");
   const [results, setResults] = useState<GeoPick[]>([]);
   const tRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -145,7 +148,7 @@ function CityPicker({ value, onPick }: { value: GeoPick | null; onPick: (g: GeoP
   return (
     <div className="relative">
       <input value={q} onChange={(e) => { setQ(e.target.value); onPick(null); }}
-        placeholder="city or town of birth"
+        placeholder={t("city or town of birth")}
         className="w-full bg-transparent border-b border-[#b3b3b3]/40 focus:border-white outline-none text-lg py-2 font-serif-i" />
       {results.length > 0 && !value && (
         <div className="absolute z-10 left-0 right-0 mt-2 bg-[#1f1f1f] border border-[#444] rounded-xl overflow-hidden">

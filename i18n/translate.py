@@ -73,26 +73,44 @@ def languages() -> list[tuple[str, str, str]]:
     return out
 
 
-def translate(strings: list[str], name: str, native: str) -> dict:
+CHUNK = 12  # small batches → small JSON → far fewer delimiter/escape errors
+
+
+def _translate_chunk(chunk: list[str], name: str, native: str) -> dict:
     key = env("ANTHROPIC_API_KEY")
     model = env("ANTHROPIC_MODEL", "claude-opus-4-5")
-    src = {s: s for s in strings}
+    src = {s: s for s in chunk}
     prompt = (
         f"Translate the VALUES of this JSON object into {name} ({native}) for a calm, warm "
         f"astrology wellness app UI. Rules: keep every KEY byte-for-byte identical (keys are the "
         f"English source — never change them). Translate each value into natural, friendly {name} "
-        f"as a native speaker would say it in an app. Preserve placeholders like {{n}} exactly. Keep "
-        f"it concise (these are buttons/labels). Return ONLY the JSON object, same keys, translated values.\n\n"
+        f"as a native speaker would say it in an app. Preserve placeholders like {{n}} exactly. "
+        f"Output STRICTLY valid JSON: escape any double-quote inside a value as \\\", and write any "
+        f"newline inside a value as \\n (never a literal line break). Return ONLY the JSON object.\n\n"
         + json.dumps(src, ensure_ascii=False)
     )
-    data = post_json(
-        "https://api.anthropic.com/v1/messages",
-        {"model": model, "max_tokens": 8000, "messages": [{"role": "user", "content": prompt}]},
-        {"x-api-key": key, "anthropic-version": "2023-06-01"},
-    )
-    out = extract_json(data["content"][0]["text"])
-    # keep only keys we asked for, drop identical/empty
-    return {k: v for k, v in out.items() if k in src and isinstance(v, str) and v.strip() and v != k}
+    for attempt in range(3):
+        data = post_json(
+            "https://api.anthropic.com/v1/messages",
+            {"model": model, "max_tokens": 4000, "messages": [{"role": "user", "content": prompt}]},
+            {"x-api-key": key, "anthropic-version": "2023-06-01"},
+        )
+        try:
+            out = extract_json(data["content"][0]["text"])
+            return {k: v for k, v in out.items() if k in src and isinstance(v, str) and v.strip() and v != k}
+        except Exception:
+            if attempt == 2:
+                return {}  # give up on this chunk; its strings fall back to English
+    return {}
+
+
+def translate(strings: list[str], name: str, native: str) -> dict:
+    result: dict = {}
+    for i in range(0, len(strings), CHUNK):
+        result.update(_translate_chunk(strings[i : i + CHUNK], name, native))
+    if not result:
+        raise RuntimeError("all chunks failed")
+    return result
 
 
 def main():
@@ -112,14 +130,19 @@ def main():
             continue
         if only and code not in only:
             continue
-        if not only and code in existing and len(existing[code]) >= len(strings) * 0.8:
+        have = existing.get(code, {})
+        # Delta: translate only the strings this locale is missing (new strings,
+        # or everything for a locale that failed earlier).
+        missing = [s for s in strings if s not in have]
+        if not missing:
             skipped += 1
             continue
         try:
-            existing[code] = translate(strings, name, native)
+            new = translate(missing, name, native)
+            existing.setdefault(code, {}).update(new)
             json.dump(existing, open(OUT, "w", encoding="utf-8"), ensure_ascii=False)
             done += 1
-            print(f"  [{code}] {name}: {len(existing[code])} strings")
+            print(f"  [{code}] {name}: +{len(new)} ({len(existing[code])} total)")
         except Exception as e:  # noqa: BLE001
             failed += 1
             print(f"  [{code}] {name}: FAILED {str(e)[:120]}")

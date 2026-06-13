@@ -6,6 +6,7 @@
 // Emits "HH:MM" in 24-hour format.
 
 import { useEffect, useState } from "react";
+import { useT } from "@/lib/i18n";
 
 export default function TimeInput({
   value,
@@ -14,6 +15,7 @@ export default function TimeInput({
   value: string; // "HH:MM" 24h, or ""
   onChange: (v: string) => void;
 }) {
+  const { t } = useT();
   const parse = (v: string) => {
     const m = /^(\d{1,2}):(\d{2})$/.exec(v || "");
     if (!m) return { h12: "", min: "", ap: "AM" };
@@ -43,21 +45,21 @@ export default function TimeInput({
   return (
     <div className="flex items-center gap-2">
       <select value={h12} onChange={(e) => setH12(e.target.value)} className={sel} aria-label="hour">
-        <option value="" disabled>hh</option>
+        <option value="" disabled>{t("hh")}</option>
         {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
           <option key={n} value={n}>{n}</option>
         ))}
       </select>
       <span className="text-[#b3b3b3]">:</span>
       <select value={min} onChange={(e) => setMin(e.target.value)} className={sel} aria-label="minute">
-        <option value="" disabled>mm</option>
+        <option value="" disabled>{t("mm")}</option>
         {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0")).map((m) => (
           <option key={m} value={m}>{m}</option>
         ))}
       </select>
       <select value={ap} onChange={(e) => setAp(e.target.value)} className={sel} aria-label="am/pm">
-        <option value="AM">AM</option>
-        <option value="PM">PM</option>
+        <option value="AM">{t("AM")}</option>
+        <option value="PM">{t("PM")}</option>
       </select>
     </div>
   );

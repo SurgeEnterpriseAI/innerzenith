@@ -3,10 +3,10 @@
 // Stage 10 — Profile. Name, birth details (focused edit → recalc), current
 // city, history controls, settings, DPDP data delete.
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Profile, clearProfile, saveProfile } from "@/lib/profile";
 import { clearAllSessions } from "@/lib/sessions";
-import { LANGUAGES, matchDeviceLanguage } from "@/lib/languages";
+import { LANGUAGES } from "@/lib/languages";
 import { useT } from "@/lib/i18n";
 import AccountSync from "./AccountSync";
 
@@ -23,19 +23,8 @@ export default function ProfileView({
 }) {
   const { t } = useT();
   const [refreshing, setRefreshing] = useState(false);
-  const [lang, setLang] = useState<string>(profile.language || "");
-
-  // Default the reading language to the device locale on first visit, and
-  // persist it (so readings + read-aloud localise immediately).
-  useEffect(() => {
-    if (!profile.language) {
-      const d = matchDeviceLanguage(typeof navigator !== "undefined" ? navigator.language : "en-US");
-      const updated = { ...profile, language: d };
-      saveProfile(updated);
-      setLang(d);
-      onChange(updated);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // English is the default; the dropdown reflects the user's saved choice if any.
+  const [lang, setLang] = useState<string>(profile.language || "en-US");
 
   function changeLang(code: string) {
     setLang(code);

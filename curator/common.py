@@ -113,4 +113,9 @@ def extract_json(text: str) -> dict:
             depth -= 1
             if depth == 0:
                 return json.loads(t[start : i + 1])
+    # Fallback: take the widest {...} span and parse it (handles the occasional
+    # stray/extra brace the walker miscounts on).
+    end = t.rfind("}")
+    if end > start:
+        return json.loads(t[start : end + 1])
     raise ValueError("unbalanced JSON in response")

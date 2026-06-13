@@ -287,10 +287,11 @@ function FormingShape({ shape, litCount }: { shape: { dots: [number, number][] }
 }
 
 function ConnectingScreen({ shape }: { shape: { dots: [number, number][] } }) {
+  const { t } = useT();
   return (
     <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[#2b2b2b] text-white">
       <FormingShape shape={shape} litCount={shape.dots.length} />
-      <p className="font-serif-i text-lg mt-8 text-[#d4d4d4]">Connecting your dots.</p>
+      <p className="font-serif-i text-lg mt-8 text-[#d4d4d4]">{t("Connecting your dots.")}</p>
     </div>
   );
 }

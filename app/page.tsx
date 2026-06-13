@@ -33,7 +33,8 @@ type View =
 export default function Page() {
   const [ready, setReady] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [autoLocale, setAutoLocale] = useState("en-US");
+  const [suggested, setSuggested] = useState("en-US"); // the regional language we OFFER
+  const [localeChoice, setLocaleChoice] = useState<string | null>(null); // pre-profile pick
   const [view, setView] = useState<View>({ kind: "tab", tab: "home" });
 
   useEffect(() => {
@@ -48,22 +49,17 @@ export default function Page() {
         await syncInit();
       } catch {}
       const p = loadProfile();
-      // First-time visitors: default the language from their LOCATION (Vercel
-      // edge geo) — e.g. Bengaluru → Kannada — falling back to the browser
-      // language. Persist it so readings localise too. Returning users keep
-      // whatever they chose.
-      let auto = device;
+      // English is the default. We still detect the visitor's regional language
+      // (Vercel edge geo → e.g. Bengaluru = Kannada; else browser language) but
+      // only to OFFER it via a small nudge — never to switch automatically.
+      let offer = device;
       if (!p?.language) {
         const geo = await fetchGeoLocale();
-        if (geo) auto = geo;
+        if (geo) offer = geo;
       }
       if (cancelled) return;
-      if (p && !p.language) {
-        p.language = auto;
-        saveProfile(p);
-      }
       setProfile(p);
-      setAutoLocale(auto);
+      setSuggested(offer);
       setReady(true);
     };
     hydrate();
@@ -75,13 +71,15 @@ export default function Page() {
     };
   }, []);
 
-  const locale = profile?.language || autoLocale;
+  // English by default; only the user's explicit choice (picker or the nudge)
+  // changes it.
+  const locale = profile?.language || localeChoice || "en-US";
 
-  // The "Continue in English?" nudge's escape hatch.
-  function switchToEnglish() {
-    setAutoLocale("en-US");
-    if (profile && profile.language !== "en-US") {
-      const u = { ...profile, language: "en-US" };
+  // The nudge's action: switch to the offered regional language.
+  function switchToLocal() {
+    setLocaleChoice(suggested);
+    if (profile && profile.language !== suggested) {
+      const u = { ...profile, language: suggested };
       saveProfile(u);
       setProfile(u);
     }
@@ -96,8 +94,8 @@ export default function Page() {
     content = (
       <Onboarding
         onComplete={(p) => {
-          if (!p.language) {
-            p.language = autoLocale; // carry the geo/device language into the new profile
+          if (localeChoice && !p.language) {
+            p.language = localeChoice; // they tapped the nudge during onboarding
             saveProfile(p);
           }
           setProfile(p);
@@ -168,7 +166,7 @@ export default function Page() {
   return (
     <I18nProvider locale={locale}>
       {content}
-      {ready && <LanguageToast locale={locale} onEnglish={switchToEnglish} />}
+      {ready && <LanguageToast locale={locale} suggested={suggested} onSwitch={switchToLocal} />}
     </I18nProvider>
   );
 }

@@ -766,12 +766,31 @@ def _sign_strength(sign_idx: int, planets: dict) -> float:
 ODD_SIGNS = {"Aries", "Gemini", "Leo", "Libra", "Sagittarius", "Aquarius"}
 
 
+def _narayana_direction(sign_idx: int, planets: dict) -> bool:
+    """Narayana Mahadasha sweep direction — spec 2.13: Movable → forward,
+    Fixed → backward, Dual → inherit from the sign-lord's OCCUPIED-sign modality
+    (lord in Movable → forward, in Fixed → backward, in Dual → forward).
+    Replaces the earlier odd/even-parity shortcut, which disagreed with the spec
+    for Cancer, Leo, Capricorn, Aquarius and all four Dual signs."""
+    m = MODALITY[SIGNS[sign_idx]]
+    if m == "movable":
+        return True
+    if m == "fixed":
+        return False
+    lord = SIGN_LORDS[SIGNS[sign_idx]]
+    if lord in planets:
+        lm = MODALITY[SIGNS[sign_index(planets[lord]["total_degrees"])]]
+        if lm == "movable":
+            return True
+        if lm == "fixed":
+            return False
+    return True  # Dual lord in a Dual sign → default forward
+
+
 def _narayana_from(dasha_lagna_idx: int, planets: dict, birth_dt: datetime,
                    span_years: int) -> list:
-    # Mahadasha sequence direction (v4): forward if the Dasha Lagna sign is ODD,
-    # backward if EVEN.
-    lagna_sign = SIGNS[dasha_lagna_idx]
-    forward = lagna_sign in ODD_SIGNS
+    # Mahadasha sequence direction — spec 2.13 modality rule (see helper).
+    forward = _narayana_direction(dasha_lagna_idx, planets)
     rasi_matrix = rasi_drishti()
     timeline = []
     cursor = birth_dt

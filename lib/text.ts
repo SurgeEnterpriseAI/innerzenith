@@ -13,14 +13,16 @@ export function stripMarkdown(text: string): string {
     })
     .map((line) =>
       line
-        .replace(/^#{1,6}\s+/, "")        // headings
+        .replace(/^#{1,6}\s+/, "")             // headings
+        .replace(/^\s*\d{1,2}\.\s{1,3}(?=\S)/, "") // leading ordered-list marker ("1. ")
         .replace(/^\s*[-*•]\s{1,3}(?=\S)/, "") // leading bullet ONLY (needs space + content)
+        .replace(/\*\*([^*]+?)\*\*/g, "$1")    // bold — MUST run before single-* below
+        .replace(/__([^_]+?)__/g, "$1")        // bold underscore — balanced
+        .replace(/`([^`]+?)`/g, "$1")          // inline code — balanced
+        // single-asterisk italics — stripped PER LINE and only as a BALANCED
+        // pair with no inner asterisk, so an unbalanced stray * can never eat
+        // text across lines (the failure mode that motivated the old caution).
+        .replace(/\*([^*\n]+?)\*/g, "$1")
     )
-    .join("\n")
-    .replace(/\*\*([^*]+?)\*\*/g, "$1")   // bold — balanced, no inner asterisks
-    .replace(/__([^_]+?)__/g, "$1")       // bold underscore — balanced
-    .replace(/`([^`]+?)`/g, "$1");        // inline code — balanced
-  // NOTE: single-asterisk italics are intentionally NOT stripped here — the
-  // prompt forbids markdown, so any stray single * is rare and harmless, and
-  // stripping it risks eating real text across unbalanced spans.
+    .join("\n");
 }

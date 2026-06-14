@@ -95,14 +95,28 @@ export function chartToContext(profile: any, currentCity?: string | null): strin
   if (ck.core_temperament_style) lines.push(`temperament: ${ck.core_temperament_style}`);
   if (ck.life_phase_classification) lines.push(`life phase: ${ck.life_phase_classification}`);
   if (snap.vedic_dasha) lines.push(`active period: ${snap.vedic_dasha}`);
+  // All three active-period systems (spec 7.5 active_period_snapshot) — not just the Vedic one.
+  if (snap.bazi_luck_pillar) lines.push(`active luck pillar: ${snap.bazi_luck_pillar}`);
+  if (snap.ziwei_da_xian) lines.push(`active life-stage palace: ${snap.ziwei_da_xian}`);
   if (ck.dominant_bazi_element) lines.push(`dominant element: ${ck.dominant_bazi_element}`);
   if (ck.elemental_imbalance_flag) lines.push(`imbalance: ${ck.elemental_imbalance_flag}`);
   if (Array.isArray(ck.favourable_elements) && ck.favourable_elements.length)
     lines.push(`favourable elements: ${ck.favourable_elements.join(", ")}`);
+  if (Array.isArray(ck.unfavourable_elements) && ck.unfavourable_elements.length)
+    lines.push(`draining elements: ${ck.unfavourable_elements.join(", ")}`);
   if (Array.isArray(ck.vedic_yoga_strings) && ck.vedic_yoga_strings.length)
     lines.push(`active patterns: ${ck.vedic_yoga_strings.join("; ")}`);
+  // Mutual-reception exchanges (spec: must be referenced in any reading touching those houses).
+  if (Array.isArray(ck.parivartana_cache) && ck.parivartana_cache.length)
+    lines.push(`reinforcing exchanges: ${ck.parivartana_cache.join("; ")}`);
   if (ck.sade_sati?.active)
-    lines.push(`a long discipline-cycle is active (${ck.sade_sati.phase} phase)`);
+    lines.push(`a long discipline-cycle is active (${ck.sade_sati.phase} phase)${ck.sade_sati.detail ? " — " + ck.sade_sati.detail : ""}`);
+  // House-strength map (Ashtakavarga). INTERNAL ONLY — relative life-area fortification.
+  if (Array.isArray(ck.ashtakavarga_matrix) && ck.ashtakavarga_matrix.length === 12)
+    lines.push(`internal life-area strength map (12 positions, higher = more fortified; use ONLY to judge which life-areas are reinforced vs strained — NEVER cite numbers or positions to the user): ${ck.ashtakavarga_matrix.join(",")}`);
+  // Cusp/no-birth-time Moon ambiguity (spec 6.4 / 1.5) — the AI must ask one gentle clarifier.
+  if (profile.vedic?.moon_sign_uncertain && Array.isArray(profile.vedic?.possible_moon_signs))
+    lines.push(`MOON SIGN UNCERTAIN: the birth time is missing/approximate, so the emotional-core reading sits between two possibilities. Early in a Relationships or Life-Purpose session, ask ONE gentle either/or question to settle which fits, then proceed — never expose that a calculation is involved.`);
 
   // ── ACTUAL PERIOD DATES (resolved live against today from the stored
   // timeline — spec 2.12 session-open query, so it never goes stale) ──

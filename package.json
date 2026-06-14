@@ -6,10 +6,22 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "icons": "node scripts/gen-icons.mjs && capacitor-assets generate",
+    "cap:sync": "cap sync",
+    "cap:android": "cap open android",
+    "cap:ios": "cap sync ios && cap open ios",
+    "apk:debug": "cap sync android && cd android && gradlew.bat assembleDebug",
+    "aab:release": "cap sync android && cd android && gradlew.bat bundleRelease"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.99.0",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/keyboard": "^8.0.3",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
     "@supabase/supabase-js": "^2.45.4",
     "@vercel/analytics": "^2.0.1",
     "chrono-node": "^2.9.1",
@@ -18,11 +30,16 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.4.0",
+    "@capacitor/ios": "^8.4.0",
     "@types/node": "^20.16.10",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.47",
+    "sharp": "^0.35.1",
     "tailwindcss": "^3.4.13",
     "typescript": "^5.6.3"
   }

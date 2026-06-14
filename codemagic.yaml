@@ -1,0 +1,77 @@
+# Codemagic CI/CD for dotit (Capacitor). Cloud builds — no local Mac needed.
+# Set the referenced variables in the Codemagic UI (Teams > dotit > Environment
+# variables / code-signing) before running. The web app stays hosted on Vercel;
+# these workflows only build the native shells.
+
+workflows:
+  android-release:
+    name: dotit Android (Play Store AAB)
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      groups:
+        - google_play        # CM_KEYSTORE, CM_KEYSTORE_PASSWORD, CM_KEY_ALIAS,
+                             # CM_KEY_PASSWORD, GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+      node: 20
+      java: 21
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Capacitor sync
+        script: npx cap sync android
+      - name: Set up keystore
+        script: |
+          echo $CM_KEYSTORE | base64 --decode > "$CM_BUILD_DIR/dotit.keystore"
+          cat >> "$CM_BUILD_DIR/android/key.properties" <<EOF
+          storeFile=$CM_BUILD_DIR/dotit.keystore
+          storePassword=$CM_KEYSTORE_PASSWORD
+          keyAlias=$CM_KEY_ALIAS
+          keyPassword=$CM_KEY_PASSWORD
+          EOF
+      - name: Build AAB
+        script: |
+          cd android
+          ./gradlew bundleRelease
+    artifacts:
+      - android/app/build/outputs/**/*.aab
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal          # internal -> closed -> production as you promote
+        submit_as_draft: true
+
+  ios-release:
+    name: dotit iOS (App Store IPA)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: dotit_asc   # App Store Connect API key set in Codemagic
+    environment:
+      node: 20
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: in.surgesoftware.dotit
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Add iOS platform if missing
+        script: '[ -d ios ] || npx cap add ios'
+      - name: Capacitor sync
+        script: npx cap sync ios
+      - name: CocoaPods install
+        script: cd ios/App && pod install
+      - name: Set up signing
+        script: xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace "ios/App/App.xcworkspace" \
+            --scheme "App"
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

@@ -20,3 +20,19 @@ rag/_pdfs/
 rag/_raw/
 ephemeris-service/_ragtmp/
 rag/_drive/
+
+# Capacitor / native build artifacts (commit the native projects, not build output)
+android/.gradle/
+android/build/
+android/app/build/
+android/captures/
+android/local.properties
+android/.idea/
+android/app/release/
+ios/App/build/
+ios/App/Pods/
+ios/App/output/
+ios/App/App/public/
+*.keystore
+*.jks
+!debug.keystore

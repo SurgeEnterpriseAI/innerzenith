@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>dotit</title>
+  <style>
+    html, body {
+      margin: 0; height: 100%;
+      background: #2b2b2b; color: #e8e6e1;
+      font-family: Georgia, "Times New Roman", serif;
+      display: flex; align-items: center; justify-content: center;
+      -webkit-user-select: none; user-select: none;
+    }
+    .wrap { text-align: center; padding: 2rem; max-width: 22rem; }
+    .dots { margin-bottom: 1.5rem; }
+    h1 { font-weight: 400; letter-spacing: 0.04em; font-size: 1.6rem; margin: 0 0 0.75rem; }
+    p { color: #a9a6a0; font-size: 0.95rem; line-height: 1.5; margin: 0 0 1.5rem; }
+    button {
+      background: transparent; color: #e8e6e1; border: 1px solid #4a4842;
+      padding: 0.6rem 1.4rem; border-radius: 999px; font-family: inherit;
+      font-size: 0.9rem; letter-spacing: 0.03em;
+    }
+    button:active { background: #3a3833; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <svg class="dots" width="84" height="84" viewBox="0 0 84 84" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="18" y1="22" x2="42" y2="14" stroke="#5a5852" stroke-width="1"/>
+      <line x1="42" y1="14" x2="64" y2="30" stroke="#5a5852" stroke-width="1"/>
+      <line x1="64" y1="30" x2="56" y2="58" stroke="#5a5852" stroke-width="1"/>
+      <line x1="56" y1="58" x2="26" y2="62" stroke="#5a5852" stroke-width="1"/>
+      <line x1="26" y1="62" x2="18" y2="22" stroke="#5a5852" stroke-width="1"/>
+      <circle cx="18" cy="22" r="3" fill="#e8e6e1"/>
+      <circle cx="42" cy="14" r="2.4" fill="#cfccc4"/>
+      <circle cx="64" cy="30" r="3.4" fill="#f3f1ec"/>
+      <circle cx="56" cy="58" r="2.4" fill="#cfccc4"/>
+      <circle cx="26" cy="62" r="3" fill="#e8e6e1"/>
+    </svg>
+    <h1>dotit</h1>
+    <p>You're offline right now. dotit needs a connection to read your chart. Reconnect and try again.</p>
+    <button onclick="location.reload()">Try again</button>
+  </div>
+</body>
+</html>

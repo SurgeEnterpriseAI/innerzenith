@@ -55,19 +55,27 @@ def _wu_xing_ju(year_stem: int, life_branch: int):
     return elem, num, f"{elem} Bureau {num}"
 
 
-def _lunar_month_day(jd_ut: float):
-    """Approximate Chinese lunar month & day from the moon-sun elongation.
-    Day-in-lunar-month ~ (moon_lon - sun_lon) / 12.19; month from new-moon count.
-    For palace placement we need lunar month (1-12) and lunar day (1-30).
-    """
-    sun, _ = swe.calc_ut(jd_ut, swe.SUN, swe.FLG_SWIEPH)
-    moon, _ = swe.calc_ut(jd_ut, swe.MOON, swe.FLG_SWIEPH)
-    elong = (moon[0] - sun[0]) % 360.0
-    lunar_day = int(elong / 12.1907) + 1  # 1..30
-    # lunar month: approximate from solar longitude (month index by 30° band from 315)
-    sun_lon = sun[0] % 360.0
-    lunar_month = (int(((sun_lon - 315) % 360) // 30) + 1)
-    return max(1, min(30, lunar_day)), max(1, min(12, lunar_month))
+def _lunar_month_day(tc):
+    """Exact Chinese lunar month & day via the lunar calendar (handles leap
+    months). Spec 5.1 leap-month rule: in a leap month, days 1-15 keep the
+    current month, day 16+ roll to the following month for palace placement.
+    Falls back to a moon-sun elongation approximation if the library is absent."""
+    try:
+        from lunardate import LunarDate
+        d = tc.local_dt
+        L = LunarDate.fromSolarDate(d.year, d.month, d.day)
+        month, day = L.month, L.day
+        if getattr(L, "isLeapMonth", False) and day >= 16:
+            month = month % 12 + 1
+        return max(1, min(30, day)), max(1, min(12, month))
+    except Exception:
+        sun, _ = swe.calc_ut(tc.jd_ut, swe.SUN, swe.FLG_SWIEPH)
+        moon, _ = swe.calc_ut(tc.jd_ut, swe.MOON, swe.FLG_SWIEPH)
+        elong = (moon[0] - sun[0]) % 360.0
+        lunar_day = int(elong / 12.1907) + 1
+        sun_lon = sun[0] % 360.0
+        lunar_month = (int(((sun_lon - 315) % 360) // 30) + 1)
+        return max(1, min(30, lunar_day)), max(1, min(12, lunar_month))
 
 
 def _hour_branch(local_dt, time_known: bool):
@@ -78,7 +86,7 @@ def _hour_branch(local_dt, time_known: bool):
 
 
 def ziwei_chart(tc, gender: str) -> dict:
-    lunar_day, lunar_month = _lunar_month_day(tc.jd_ut)
+    lunar_day, lunar_month = _lunar_month_day(tc)
     hour_branch = _hour_branch(tc.local_dt, tc.time_known)
 
     if hour_branch is None:
@@ -127,7 +135,19 @@ def ziwei_chart(tc, gender: str) -> dict:
         "san_fang_si_zheng": _palace_groupings(),
         "opposition_pairs": _opposition_pairs(),
         "da_xian": _da_xian(palaces, life_idx, tc, gender, ju_num, year_stem),
+        "annual_palaces": _annual_palaces(palaces),
     }
+
+
+def _annual_palaces(palaces: dict) -> dict:
+    """Annual Life Palace (Liu Nian Ming Gong) for each year 2020-2035 (spec
+    5.10): the palace sitting on that year's Earthly Branch."""
+    out = {}
+    by_branch = {p["branch_index"]: name for name, p in palaces.items()}
+    for year in range(2020, 2036):
+        year_branch = (year - 4) % 12
+        out[str(year)] = by_branch.get(year_branch)
+    return out
 
 
 def _life_palace_index(lunar_month: int, hour_branch: int) -> int:

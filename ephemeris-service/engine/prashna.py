@@ -101,6 +101,9 @@ def prashna_chart(tc, question_type: str = "general") -> dict:
     # ── Layer 6: Event Timing ──
     layer6 = _layer6_timing(layer4, sp, planets, moon, MODALITY[sign_of(udaya)], layer3)
 
+    # ── Condition quality (dignity + placement of S and P) ──
+    condition_quality = _condition_quality(planets, sp, asc_sign_idx)
+
     return {
         "engine": "prashna-7layer-v3",
         "prashna_lagna": {
@@ -119,6 +122,7 @@ def prashna_chart(tc, question_type: str = "general") -> dict:
         "layer5_moon_application": layer5,
         "layer6_event_timing": layer6,
         "notable_signals": notable,
+        "condition_quality": condition_quality,
     }
 
 
@@ -163,6 +167,59 @@ def _notable_signals(planets: dict, sp: dict, moon: float) -> dict:
             f"main question's own outcome reads as a 'no'. This is usually the headline of the reading."
         )
     return out
+
+
+# ─── Condition quality of S and P (dignity + placement) ────────
+# House themes in PLAIN language so the AI can speak the meaning of a
+# placement without ever naming a house number (Rule 1).
+_HOUSE_THEME = {
+    1: "the person themselves — vitality, how they show up",
+    2: "money, resources, security, family",
+    3: "effort, initiative, communication, courage",
+    4: "home, foundations, inner peace, property",
+    5: "creativity, recognition, children, what they put into the world",
+    6: "work, service, the daily grind, obstacles, health, competition",
+    7: "partnership, the other person, deals, the other side",
+    8: "upheaval, shared resources, hidden things, transformation",
+    9: "fortune, belief, mentors, higher learning, luck",
+    10: "career, public standing, authority, the institution",
+    11: "gains, income, networks, fulfilment of desires",
+    12: "endings, loss, letting go, foreign places, retreat",
+}
+
+
+def _condition_quality(planets, sp, asc_sign_idx):
+    """Surface the DIGNITY (strength/quality) and house placement of the
+    significator (the querent) and promittor (the outcome). This is what lets
+    the AI say a thing is 'high-quality and well-resourced' vs 'compromised',
+    and describe the mechanism of the outcome — instead of vague filler."""
+    from .constants import EXALTATION, DEBILITATION, OWN_SIGNS, SIGNS as _S
+
+    def one(planet):
+        if planet not in planets:
+            return None
+        p = planets[planet]
+        sign = p["sign"]
+        if planet in EXALTATION and sign == EXALTATION[planet][0]:
+            dignity = "exalted"; plain = "exceptionally strong, high-quality, well-resourced"
+        elif planet in DEBILITATION and sign == DEBILITATION[planet]:
+            dignity = "debilitated"; plain = "weakened, under strain, compromised or lower-quality"
+        elif planet in OWN_SIGNS and sign in OWN_SIGNS[planet]:
+            dignity = "own sign"; plain = "comfortable, on home ground, self-sufficient"
+        else:
+            dignity = "neutral"; plain = "workable — neither especially strong nor weak"
+        house = house_from(asc_sign_idx, sign_index(p["lon"]))
+        rules = []
+        for s in OWN_SIGNS.get(planet, []):
+            h = house_from(asc_sign_idx, _S.index(s))
+            rules.append({"house": h, "theme": _HOUSE_THEME.get(h, "")})
+        return {
+            "sign": sign, "dignity": dignity, "quality_plain": plain,
+            "sits_in_house": house, "sits_in_house_theme": _HOUSE_THEME.get(house, ""),
+            "rules_houses": rules, "retrograde": p.get("retro", False),
+        }
+
+    return {"significator": one(sp.get("S")), "promittor": one(sp.get("P"))}
 
 
 # ─── Significator / Promittor (8.2) ────────────────────────────
@@ -233,6 +290,8 @@ def _layer1_kerala(tc, udaya, asc_sign_idx, planets, moon, sp):
 
     # Gulika
     gulika = _gulika(tc)
+    if gulika:
+        gulika["house_from_lagna"] = house_from(asc_sign_idx, sign_index(gulika["lon"]))
 
     # Trisphuta = Udaya + Moon + Gulika longitudes
     tris_lon = norm360(udaya + moon + (gulika["lon"] if gulika else 0))

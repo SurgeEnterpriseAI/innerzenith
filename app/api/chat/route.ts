@@ -210,7 +210,19 @@ export async function POST(req: NextRequest) {
       (m) => m.role === "user" && !m.content.startsWith("__")
     );
     const topicHint = body.category ? `${body.category} ` : "";
-    const q = (topicHint + (lastUser?.content || "")).trim();
+    // Spec 11.1: the RAG query is driven by the chart's Cached AI Keys (the
+    // mathematically-derived geometry strings), NOT the user's raw conversational
+    // text. Lead with the named patterns / temperament / active period; append a
+    // short tail of the user's words only to keep follow-ups on-topic.
+    const ckq = body.chartProfile?.cache_keys || {};
+    const chartTerms = [
+      ...(Array.isArray(ckq.vedic_yoga_strings) ? ckq.vedic_yoga_strings : []),
+      ...(Array.isArray(ckq.bazi_interaction_map) ? ckq.bazi_interaction_map : []),
+      ckq.core_temperament_style,
+      ckq.active_period_snapshot?.vedic_dasha,
+    ].filter(Boolean).join(" ");
+    const userTail = (lastUser?.content || "").slice(0, 160);
+    const q = (topicHint + chartTerms + " " + userTail).trim();
     if (q.length > 3) {
       const grounding = await classicalGrounding(q, 4);
       if (grounding) system += grounding;

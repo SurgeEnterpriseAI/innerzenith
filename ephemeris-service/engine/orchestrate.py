@@ -129,9 +129,16 @@ def compute_profile(
                              swe.SATURN, swe.FLG_SIDEREAL)
     sade = ck.sade_sati_status(v.sign_index(planets["Moon"]["total_degrees"]),
                                v.sign_index(sat_pos[0]))
+    try:
+        age = (now - tc.local_dt.replace(tzinfo=None)).days / 365.25
+    except Exception:
+        age = now.year - int(str(birth_date)[:4])
     cache = ck.build_cache_keys(vedic_block, dma, pillars, ziwei_block,
                                 dasha_current, yogas,
-                                vedic_block.get("ashtakavarga", {}), sade)
+                                vedic_block.get("ashtakavarga", {}), sade,
+                                luck_pillars=bazi_block["luck_pillars"], age=age,
+                                ten_gods=bazi_block["ten_gods"],
+                                branch_interactions=bazi_block["branch_interactions"])
 
     return {
         "meta": {

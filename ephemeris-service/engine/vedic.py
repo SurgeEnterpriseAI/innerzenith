@@ -704,15 +704,38 @@ def vimshottari_dasha(moon_lon: float, birth_dt: datetime, span_years: int = 90)
         # antardashas
         antars = []
         a_cursor = md_start
-        for j in range(9):
-            sub = VIMSHOTTARI_ORDER[(VIMSHOTTARI_ORDER.index(lord) + j) % 9]
-            sub_years = md_years * (VIMSHOTTARI_YEARS[sub] / VIMSHOTTARI_TOTAL)
-            antars.append({
-                "lord": sub,
-                "start": a_cursor.date().isoformat(),
-                "end": _add_years(a_cursor, sub_years).date().isoformat(),
-            })
-            a_cursor = _add_years(a_cursor, sub_years)
+        if i == 0:
+            # First mahadasha: the native is already partway through it at birth.
+            # Antardashas run at FULL mahadasha scale; emit starting from the one
+            # actually running at birth (with its REMAINING portion), not from the
+            # maha lord's own sub-period compressed into the leftover balance.
+            full_md = VIMSHOTTARI_YEARS[lord]
+            elapsed = full_md - balance_years  # years already gone at birth
+            acc = 0.0
+            for j in range(9):
+                sub = VIMSHOTTARI_ORDER[(VIMSHOTTARI_ORDER.index(lord) + j) % 9]
+                sub_full = full_md * (VIMSHOTTARI_YEARS[sub] / VIMSHOTTARI_TOTAL)
+                seg_start, seg_end = acc, acc + sub_full
+                acc = seg_end
+                if seg_end <= elapsed + 1e-9:
+                    continue  # this antardasha finished before birth
+                remaining = seg_end - max(elapsed, seg_start)
+                antars.append({
+                    "lord": sub,
+                    "start": a_cursor.date().isoformat(),
+                    "end": _add_years(a_cursor, remaining).date().isoformat(),
+                })
+                a_cursor = _add_years(a_cursor, remaining)
+        else:
+            for j in range(9):
+                sub = VIMSHOTTARI_ORDER[(VIMSHOTTARI_ORDER.index(lord) + j) % 9]
+                sub_years = md_years * (VIMSHOTTARI_YEARS[sub] / VIMSHOTTARI_TOTAL)
+                antars.append({
+                    "lord": sub,
+                    "start": a_cursor.date().isoformat(),
+                    "end": _add_years(a_cursor, sub_years).date().isoformat(),
+                })
+                a_cursor = _add_years(a_cursor, sub_years)
         timeline.append({
             "maha_lord": lord,
             "start": md_start.date().isoformat(),

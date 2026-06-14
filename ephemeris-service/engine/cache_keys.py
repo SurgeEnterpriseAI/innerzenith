@@ -12,7 +12,10 @@ from .vedic import sign_index, house_from, nth_sign
 
 def build_cache_keys(vedic: dict, bazi_dma: dict, bazi_pillars: dict,
                      ziwei: dict, dasha_current: dict, yogas: list,
-                     ashtakavarga: dict, sade_sati: dict) -> dict:
+                     ashtakavarga: dict, sade_sati: dict,
+                     luck_pillars: dict | None = None, age: float | None = None,
+                     ten_gods: dict | None = None,
+                     branch_interactions: dict | None = None) -> dict:
     # yoga strings
     yoga_strings = [
         f"{y['name']} {y.get('strength','')}".strip() + (" Mitigated" if y.get("mitigated") else "")
@@ -21,10 +24,11 @@ def build_cache_keys(vedic: dict, bazi_dma: dict, bazi_pillars: dict,
     parivartana = [f"{'-'.join(y['components'])} exchange" for y in yogas
                    if y["name"] == "Parivartana Yoga"]
 
-    # active period snapshot
+    # active period snapshot — luck pillar is now the AGE-appropriate pillar,
+    # not the day-master placeholder.
     snapshot = {
         "vedic_dasha": f"{dasha_current.get('current_maha')}-{dasha_current.get('current_antar')}",
-        "bazi_luck_pillar": _current_luck(bazi_pillars),
+        "bazi_luck_pillar": _current_luck(luck_pillars, age, bazi_pillars),
         "ziwei_da_xian": (ziwei.get("da_xian", {}).get("periods", [{}])[0].get("palace")
                           if ziwei.get("available") else None),
     }
@@ -51,12 +55,42 @@ def build_cache_keys(vedic: dict, bazi_dma: dict, bazi_pillars: dict,
         "sade_sati": sade_sati,
         "favourable_elements": bazi_dma.get("favourable_elements"),
         "unfavourable_elements": bazi_dma.get("unfavourable_elements"),
+        "bazi_interaction_map": _interaction_map(branch_interactions, ten_gods),
     }
 
 
-def _current_luck(pillars: dict) -> str:
-    # placeholder: the active luck pillar string would come from luck_pillars
+def _current_luck(luck_pillars: dict | None, age: float | None,
+                  pillars: dict) -> str:
+    """The luck pillar bracketing the user's CURRENT age (spec 4.5/7.5).
+    Falls back to the day-master string only if luck data is unavailable."""
+    if luck_pillars and age is not None:
+        for p in luck_pillars.get("pillars", []):
+            if p.get("from_age", -1) <= age < p.get("to_age", 1e9):
+                return f"{p['stem']}/{p['stem_element']} ({p['animal']}/{p['branch_element']})"
     return f"{pillars['day_master']}/{pillars['day_master_element']}"
+
+
+def _interaction_map(bi: dict | None, tg: dict | None) -> list:
+    """Named BaZi clashes/combinations/harms + the Ten Gods on each pillar —
+    spec 4.7/7.5 'BaZi interaction map'. Plain strings the AI can read."""
+    out: list[str] = []
+    bi = bi or {}
+    for key, label in (("combinations", "combination"), ("clashes", "clash"),
+                       ("harms", "harm"), ("destructions", "destruction")):
+        for item in bi.get(key, []) or []:
+            out.append(f"{label}: {item}")
+    for item in bi.get("three_harmony", []) or []:
+        if isinstance(item, dict):
+            brs = "-".join(item.get("branches", []))
+            kind = "full" if item.get("full") else "partial"
+            out.append(f"three-harmony ({kind} {item.get('element','')}): {brs}")
+        else:
+            out.append(f"three-harmony: {item}")
+    if tg:
+        gods = [f"{k.replace('_stem','')}={v}" for k, v in tg.items()]
+        if gods:
+            out.append("ten-gods: " + ", ".join(gods))
+    return out
 
 
 def _temperament(dma: dict, vedic: dict) -> str:

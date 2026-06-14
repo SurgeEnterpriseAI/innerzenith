@@ -191,8 +191,9 @@ def ruling_planets(tc) -> dict:
     moon_pos, _ = swe.calc_ut(tc.jd_ut, swe.MOON, flag)
     moon = norm360(moon_pos[0])
     moon_sl, moon_star, moon_sub, _ = _sub_lord_chain(moon)
-    # day lord
-    weekday = tc.utc_dt.weekday()  # Mon=0
+    # day lord — use the LOCAL civil day, not UTC (the KP day is local; UTC can
+    # roll to the wrong weekday for evening/early-morning births).
+    weekday = tc.local_dt.weekday()  # Mon=0
     day_lords = ["Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Sun"]
     # Python Monday=0 -> Moon; classical: Sun=Sunday. Adjust: weekday() Sun=6
     day_lord_map = {0: "Moon", 1: "Mars", 2: "Mercury", 3: "Jupiter",

@@ -109,6 +109,9 @@ export function chartToContext(profile: any, currentCity?: string | null): strin
   // Mutual-reception exchanges (spec: must be referenced in any reading touching those houses).
   if (Array.isArray(ck.parivartana_cache) && ck.parivartana_cache.length)
     lines.push(`reinforcing exchanges: ${ck.parivartana_cache.join("; ")}`);
+  // BaZi interaction map — natal clashes/combinations/harms + Ten Gods (spec 7.5).
+  if (Array.isArray(ck.bazi_interaction_map) && ck.bazi_interaction_map.length)
+    lines.push(`inner tensions & alliances: ${ck.bazi_interaction_map.join("; ")}`);
   if (ck.sade_sati?.active)
     lines.push(`a long discipline-cycle is active (${ck.sade_sati.phase} phase)${ck.sade_sati.detail ? " — " + ck.sade_sati.detail : ""}`);
   // House-strength map (Ashtakavarga). INTERNAL ONLY — relative life-area fortification.

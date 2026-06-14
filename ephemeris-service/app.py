@@ -27,6 +27,7 @@ from engine.orchestrate import compute_profile
 from engine.timeconv import build_time_context
 from engine import prashna as prashna_mod
 from engine import cache_keys as ck
+from engine import kp as kp_mod
 
 SHARED_SECRET = os.getenv("EPHEMERIS_SHARED_SECRET", "change-me")
 
@@ -161,6 +162,13 @@ def prashna(req: PrashnaRequest, x_ephemeris_secret: Optional[str] = Header(None
             local.strftime("%H:%M:%S"),
             req.latitude, req.longitude, req.timezone,
         )
-        return prashna_mod.prashna_chart(tc, req.question_type)
+        chart = prashna_mod.prashna_chart(tc, req.question_type)
+        # Five ruling planets at the question moment (spec 3.5 — "especially
+        # critical for Ask Now"). Computed live at the Prashna moment.
+        try:
+            chart["ruling_planets"] = kp_mod.ruling_planets(tc)
+        except Exception:
+            pass
+        return chart
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"prashna computation failed: {e}")

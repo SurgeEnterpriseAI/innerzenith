@@ -357,15 +357,17 @@ def _gulika(tc):
     if sr <= tc.jd_ut < ss:  # daytime
         mandi = MANDI_GHATI_DAY[weekday]
         gulika_jd = sr + (mandi / 30.0) * (ss - sr)
-    else:  # nighttime — same structure; night Mandi flagged for source verification
+    else:  # nighttime — night Gulika starts from the lord of the 5th weekday,
+           # i.e. the day Mandi-ghati of (weekday+4). Verified against the
+           # classical night Gulika table (Sun-night=10, Mon=6, Tue=2, Wed=26,
+           # Thu=22, Fri=18, Sat=14 ghatis from sunset).
         next_sr = sr + 1.0
-        mandi = MANDI_GHATI_DAY[weekday]  # placeholder until night table verified
+        mandi = MANDI_GHATI_DAY[(weekday + 4) % 7]
         gulika_jd = ss + (mandi / 30.0) * (next_sr - ss)
     swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     _, ascmc = swe.houses_ex(gulika_jd, tc.lat, tc.lon, b"P", swe.FLG_SIDEREAL)
     glon = norm360(ascmc[0])
-    return {"lon": glon, "sign": sign_of(glon), "degree": round(deg_in_sign(glon), 2),
-            "night_value_unverified": not (sr <= tc.jd_ut < ss)}
+    return {"lon": glon, "sign": sign_of(glon), "degree": round(deg_in_sign(glon), 2)}
 
 
 # ─── Layer 2: Pancha Mahasutra (8.4) ───────────────────────────

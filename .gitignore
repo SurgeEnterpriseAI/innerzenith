@@ -27,6 +27,7 @@ android/build/
 android/app/build/
 android/captures/
 android/local.properties
+android/key.properties
 android/.idea/
 android/app/release/
 ios/App/build/

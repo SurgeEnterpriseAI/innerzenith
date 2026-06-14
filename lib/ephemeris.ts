@@ -83,6 +83,20 @@ function planetTheme(name: string): string {
   return M[k] || "";
 }
 
+/** Translate a BaZi five-element name into a PLAIN quality, so the model never
+ *  echoes "Earth", "Metal", "Water" etc. to the user (Rule 1 — never name an
+ *  element). Returns "" for anything unrecognised. */
+function elementQuality(name: string): string {
+  const M: Record<string, string> = {
+    wood: "growth, forward drive, and new ventures",
+    fire: "visibility, passion, warmth, and recognition",
+    earth: "groundedness, stability, patience, and the practical",
+    metal: "structure, discipline, precision, and clear boundaries",
+    water: "intuition, flow, adaptability, and depth",
+  };
+  return M[(name || "").trim().toLowerCase()] || "";
+}
+
 /** Compress a stored profile into a silent context block for the model. */
 export function chartToContext(profile: any, currentCity?: string | null): string {
   if (!profile) return "";
@@ -98,12 +112,24 @@ export function chartToContext(profile: any, currentCity?: string | null): strin
   // All three active-period systems (spec 7.5 active_period_snapshot) — not just the Vedic one.
   if (snap.bazi_luck_pillar) lines.push(`active luck pillar: ${snap.bazi_luck_pillar}`);
   if (snap.ziwei_da_xian) lines.push(`active life-stage palace: ${snap.ziwei_da_xian}`);
-  if (ck.dominant_bazi_element) lines.push(`dominant element: ${ck.dominant_bazi_element}`);
-  if (ck.elemental_imbalance_flag) lines.push(`imbalance: ${ck.elemental_imbalance_flag}`);
-  if (Array.isArray(ck.favourable_elements) && ck.favourable_elements.length)
-    lines.push(`favourable elements: ${ck.favourable_elements.join(", ")}`);
-  if (Array.isArray(ck.unfavourable_elements) && ck.unfavourable_elements.length)
-    lines.push(`draining elements: ${ck.unfavourable_elements.join(", ")}`);
+  // BaZi elements — translate to PLAIN qualities; never inject raw element names.
+  if (ck.dominant_bazi_element) {
+    const [el, strength] = String(ck.dominant_bazi_element).split("_");
+    const q = elementQuality(el);
+    if (q) lines.push(`core nature runs ${strength ? strength.toLowerCase() + " on " : "on "}${q}`);
+  }
+  if (ck.elemental_imbalance_flag) {
+    const q = elementQuality(String(ck.elemental_imbalance_flag).replace(/^Deficient_/i, ""));
+    if (q) lines.push(`runs thin on ${q} — the quality to consciously build`);
+  }
+  if (Array.isArray(ck.favourable_elements) && ck.favourable_elements.length) {
+    const qs = ck.favourable_elements.map(elementQuality).filter(Boolean);
+    if (qs.length) lines.push(`what steadies and serves you: ${qs.join("; ")}`);
+  }
+  if (Array.isArray(ck.unfavourable_elements) && ck.unfavourable_elements.length) {
+    const qs = ck.unfavourable_elements.map(elementQuality).filter(Boolean);
+    if (qs.length) lines.push(`what unbalances you when overdone: ${qs.join("; ")}`);
+  }
   if (Array.isArray(ck.vedic_yoga_strings) && ck.vedic_yoga_strings.length)
     lines.push(`active patterns: ${ck.vedic_yoga_strings.join("; ")}`);
   // Mutual-reception exchanges (spec: must be referenced in any reading touching those houses).

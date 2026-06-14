@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
-import { fetchChart, chartToContext, timeDrilldown, EphemerisInput, castPrashna, fetchToday, buildSurpriseContext } from "@/lib/ephemeris";
+import { fetchChart, chartToContext, categoryContext, timeDrilldown, EphemerisInput, castPrashna, fetchToday, buildSurpriseContext } from "@/lib/ephemeris";
 import { readEnv } from "@/lib/env";
 import { classicalGrounding } from "@/lib/rag";
 import { parseAskNow, missingPrompt } from "@/lib/asknow";
@@ -192,6 +192,8 @@ export async function POST(req: NextRequest) {
   } else if (body.chartProfile) {
     // Natal — chart computed once at onboarding and stored client-side.
     system += "\n\n" + chartToContext(body.chartProfile, body.profile?.current_city);
+    // Topic-specific chart geometry (spec 7.5 category slice), in plain language.
+    system += categoryContext(body.chartProfile, body.category);
     // Dynamic time-drilldown: if the conversation mentions a year, append it.
     const convoText = body.messages.map((m) => m.content).join(" ");
     system += timeDrilldown(body.chartProfile, convoText);

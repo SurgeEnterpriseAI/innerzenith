@@ -172,6 +172,105 @@ differences as nuance. Give before you take.
 `;
 }
 
+// ── Per-category chart facts (spec 7.5 category context_slice) ──
+// Resolves the SPECIFIC chart geometry for the tapped topic — the house lord and
+// where it sits, what occupies the house, the topic's Arudha, and the topic's
+// divisional dignity — and renders them in PLAIN language only. This is what
+// makes a Property reading about THIS chart's home-significator rather than a
+// generic "Scorpio rising wants their territory".
+const _SIGNS = ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"];
+const _SIGN_LORD: Record<string, string> = {
+  Aries: "Mars", Taurus: "Venus", Gemini: "Mercury", Cancer: "Moon", Leo: "Sun",
+  Virgo: "Mercury", Libra: "Venus", Scorpio: "Mars", Sagittarius: "Jupiter",
+  Capricorn: "Saturn", Aquarius: "Saturn", Pisces: "Jupiter",
+};
+const _DEBIL: Record<string, string> = {
+  Sun: "Libra", Moon: "Scorpio", Mars: "Cancer", Mercury: "Pisces",
+  Jupiter: "Capricorn", Venus: "Virgo", Saturn: "Aries",
+};
+const _EXALT: Record<string, string> = {
+  Sun: "Aries", Moon: "Taurus", Mars: "Capricorn", Mercury: "Virgo",
+  Jupiter: "Cancer", Venus: "Pisces", Saturn: "Libra",
+};
+const _HOUSE_LIFE: Record<number, string> = {
+  1: "how you show up, your vitality and drive",
+  2: "money, possessions, family, and what you value",
+  3: "courage, effort, communication, and self-initiative",
+  4: "home, roots, inner peace, your mother, and property",
+  5: "creativity, children, romance, and self-expression",
+  6: "work, service, health, daily routine, and obstacles",
+  7: "partnership, marriage, and close dealings with others",
+  8: "upheaval, shared resources, depth, and transformation",
+  9: "fortune, beliefs, mentors, higher learning, and luck",
+  10: "career, public standing, and authority",
+  11: "gains, income, networks, and the fulfilment of desires",
+  12: "endings, solitude, foreign places, loss, and letting go",
+};
+const _CATEGORY_CHART: Record<string, { house: number; house2?: number; arudha?: string; varga: string; area: string }> = {
+  career: { house: 10, arudha: "A10", varga: "D10", area: "work, calling, and public standing" },
+  relationships: { house: 7, arudha: "A7", varga: "D9", area: "partnership and love" },
+  money: { house: 2, house2: 11, arudha: "A2", varga: "D2", area: "money, resources, and security" },
+  property: { house: 4, arudha: "A4", varga: "D4", area: "home, roots, and property" },
+  health: { house: 6, house2: 1, varga: "D6", area: "health and vitality" },
+  purpose: { house: 9, arudha: "A9", varga: "D9", area: "meaning, direction, and purpose" },
+};
+
+export function categoryContext(profile: any, category?: string | null): string {
+  if (!profile || !category) return "";
+  const spec = _CATEGORY_CHART[category];
+  const v = profile.vedic;
+  const lagnaSign = v?.ascendant?.sign;
+  if (!spec || !v?.planets || !lagnaSign) return ""; // no birth time → skip gracefully
+  const lagnaIdx = _SIGNS.indexOf(lagnaSign);
+  if (lagnaIdx < 0) return "";
+  const planets = v.planets;
+  const facts: string[] = [];
+
+  const houseSignFor = (h: number) => _SIGNS[(lagnaIdx + h - 1) % 12];
+  const houseOf = (sign: string) => ((_SIGNS.indexOf(sign) - lagnaIdx + 12) % 12) + 1;
+
+  const describeHouse = (h: number) => {
+    const hsign = houseSignFor(h);
+    const lord = _SIGN_LORD[hsign];
+    const lp = planets[lord];
+    if (lp && typeof lp.house_whole_sign === "number") {
+      const t = planetTheme(lord);
+      if (t) facts.push(`what drives your ${spec.area} carries the quality of ${t}, and right now it plays out through the part of life about ${_HOUSE_LIFE[lp.house_whole_sign]}`);
+    }
+    // occupants of the house
+    const occ = Object.keys(planets)
+      .filter((nm) => planets[nm]?.house_whole_sign === h && planetTheme(nm))
+      .map((nm) => planetTheme(nm));
+    if (occ.length)
+      facts.push(`sitting squarely inside your ${spec.area} are forces of ${occ.join("; ")} — these colour it strongly`);
+  };
+
+  describeHouse(spec.house);
+  if (spec.house2) describeHouse(spec.house2);
+
+  // Arudha of the topic — how it actually shows up to the world
+  const ar = v.arudha_padas?.[spec.arudha || ""];
+  if (ar && _SIGNS.includes(ar)) {
+    const ah = houseOf(ar);
+    facts.push(`the way your ${spec.area} actually appears to others takes the shape of ${_HOUSE_LIFE[ah]}`);
+  }
+
+  // Divisional dignity — the fine grain of the topic
+  const varga = v.divisional_charts?.[spec.varga];
+  if (varga?.available && varga.planets) {
+    const lord = _SIGN_LORD[houseSignFor(spec.house)];
+    const vsign = varga.planets[lord];
+    if (vsign && _DEBIL[lord] === vsign)
+      facts.push(`in the fine grain of this area, that governing force is under strain and has to work harder to deliver`);
+    else if (vsign && _EXALT[lord] === vsign)
+      facts.push(`in the fine grain of this area, that governing force is unusually strong and well-supported`);
+  }
+
+  if (!facts.length) return "";
+  return `\n\n--- THIS TOPIC IN THE CHART (plain meaning only — NEVER name a house, sign, planet, or technique; weave these as specific observations, not a list) ---\n` +
+    facts.map((f) => "  - " + f).join("\n") + "\n";
+}
+
 /** Dynamic Time-Drilldown (spec 7.5.f): if the conversation mentions a
  *  specific year, retrieve that year's periods from the stored chart and
  *  inject them (retrieval only — no recompute). */

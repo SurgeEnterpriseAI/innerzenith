@@ -62,21 +62,24 @@ function loadPrompt(file: string, fallback: string): string {
 }
 
 // Stage 7.5 — token-efficient context slice per category.
+// Topic focus. NOT a checklist to walk through — a lens. Lead with the loudest
+// signal for this topic from the profile context; go deep on the 2-4 strongest
+// threads, never a survey of every sub-theme.
 const CATEGORY_SLICE: Record<string, string> = {
   career:
-    "Focus: Career & Purpose. Draw on work, vocation, leadership, money-as-expression, business vs employment, timing, what drains them, the work they were built for.",
+    "Topic: Career & Purpose. Lead with the loudest career signal in the context (the strongest pattern, the active period's bearing on work). The threads available — leadership style, the work they're built for, money-as-expression, business vs employment, what drains them, timing — are a menu to SELECT the 2-3 loudest from, not a list to cover.",
   relationships:
-    "Focus: Relationships. Draw on romantic patterns, friendships, family role, what they seek, what attracts them, what to avoid, repeating patterns, blind spots, healthy love for them specifically.",
+    "Topic: Relationships. Lead with the loudest relational signal (their core pattern in love, what they actually attract). Threads available — romantic pattern, what attracts vs what to avoid, the repeating dynamic, family role, healthy love for them specifically — are a menu; pick the 2-3 sharpest, go deep, skip the rest.",
   property:
-    "Focus: Property & Stability. Draw on home, security, timing for property decisions, environments they thrive in, geographical influences.",
+    "Topic: Property & Stability. Lead with the loudest signal on home, security, and rootedness. Timing for property decisions (use real dates) and the environments they thrive in are the strongest threads to select from.",
   health:
-    "Focus: Health. Draw on constitutional strengths and vulnerabilities, energy cycles, stress responses, what the body needs now. ALWAYS end with a reminder to consult a medical professional.",
+    "Topic: Health. Lead with the loudest constitutional signal (core strength or vulnerability, the energy cycle they're in now). Select the 2-3 sharpest threads. ALWAYS end with a reminder to consult a medical professional.",
   money:
-    "Focus: Money & Abundance. Draw on earning patterns, relationship with wealth, what blocks abundance, when it flows naturally.",
+    "Topic: Money & Abundance. Lead with the loudest wealth signal (how they earn, what blocks or unlocks abundance, when it flows — use real dates). Go deep on the 2-3 strongest, not every angle.",
   purpose:
-    "Focus: Life Purpose. Draw on recurring soul themes, what they are here to master, the tension between what they want and what they are built for.",
+    "Topic: Life Purpose. Lead with the loudest soul-theme (what they're here to master, the central tension between what they want and what they're built for). Two or three deep threads, not a survey.",
   surprise:
-    "Focus: Surprise Me. Open with the single most striking, useful observation about this person's current season — grounded in their active periods and cycles. One arresting insight, not a broad survey.",
+    "Topic: Surprise Me. Open with the single most striking, useful observation about this person's current season — grounded in their active periods and cycles. One arresting insight, not a broad survey.",
 };
 
 function profileContext(p: ProfileLite | null | undefined): string {
@@ -237,7 +240,7 @@ export async function POST(req: NextRequest) {
       return {
         role: "user" as const,
         content:
-          "This is the user's FIRST time on this topic. Go broad and deep immediately per the first-time rule — cover every dimension of this topic in flowing prose, then end with the exact blueprint transition sentence.",
+          "This is the user's FIRST time on this topic. Follow FIRST TIME ON A TOPIC (11.3) — THE FOUR DOTS exactly. Use the four named movements (The picture so far / Where your dots sit now / The line forming / Your next dot) as plain-text labels. LEAD WITH THE LOUDEST SIGNAL from the chart context above — open on the single strongest, most specific thing about this person for this topic, then the 2-3 next-loudest threads only. This is a tight, chart-grounded portrait (~350-500 words), NOT a survey of every dimension. Obey the ONE-PASS RULE: each theme appears exactly once, never restated later. End with the exact blueprint transition sentence.",
       };
     }
     if (m.content === "__begin_returning__") {

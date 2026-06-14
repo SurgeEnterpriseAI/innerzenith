@@ -55,6 +55,34 @@ export async function computeProfile(input: EphemerisInput): Promise<any | null>
 // Back-compat alias used by older callers.
 export const fetchChart = computeProfile;
 
+/** Translate a raw planet/year-lord name into a PLAIN-language theme so no
+ *  technical term ever reaches the model's output (Rule 1). Accepts English or
+ *  Sanskrit names; returns "" for anything unrecognised so we simply omit it. */
+function planetTheme(name: string): string {
+  const k = (name || "").trim().toLowerCase();
+  const M: Record<string, string> = {
+    sun: "visibility, authority, and stepping into leadership",
+    surya: "visibility, authority, and stepping into leadership",
+    moon: "emotional life, home, and what nourishes you",
+    chandra: "emotional life, home, and what nourishes you",
+    mars: "drive, courage, and decisive action",
+    mangala: "drive, courage, and decisive action",
+    kuja: "drive, courage, and decisive action",
+    mercury: "communication, learning, and intellectual work",
+    budha: "communication, learning, and intellectual work",
+    jupiter: "growth, opportunity, and expansion",
+    guru: "growth, opportunity, and expansion",
+    brihaspati: "growth, opportunity, and expansion",
+    venus: "relationships, beauty, comfort, and money",
+    shukra: "relationships, beauty, comfort, and money",
+    saturn: "responsibility, discipline, and patient endurance",
+    shani: "responsibility, discipline, and patient endurance",
+    rahu: "ambition, reinvention, and the unconventional",
+    ketu: "letting go, depth, and turning inward",
+  };
+  return M[k] || "";
+}
+
 /** Compress a stored profile into a silent context block for the model. */
 export function chartToContext(profile: any, currentCity?: string | null): string {
   if (!profile) return "";
@@ -86,15 +114,19 @@ export function chartToContext(profile: any, currentCity?: string | null): strin
     timing.push(`current sub-period (the present "flavour" of the major period) runs until ${cur.antar_end}`);
   if (cur.next_antar_start)
     timing.push(`the next sub-period begins ${cur.next_antar_start}`);
-  // Varshaphala theme for the current solar year, if present
+  // Varshaphala theme for the current solar year, if present. Translate the raw
+  // year-lord (a planet name) into a PLAIN theme so the model can never leak it
+  // to the user (Rule 1 — never name a planet).
   const vyears = profile.vedic?.varshaphala;
   if (vyears && typeof vyears === "object") {
     const y = Object.keys(vyears)[0];
-    if (y) timing.push(`this solar year's centre of gravity is shaped by ${vyears[y]?.varsheshwara ?? "—"} themes`);
+    const lord = y ? (vyears[y]?.varsheshwara ?? "") : "";
+    const theme = planetTheme(lord);
+    if (theme) timing.push(`this solar year's centre of gravity is shaped by themes of ${theme}`);
   }
 
   const timingBlock = timing.length
-    ? `\n\nTIMING WINDOWS (real dates — when the user asks "when", "how long", "what dates", or "until when", translate these into a concrete plain-language month/year window, e.g. "this stretch runs until around March 2027". NEVER name a planet/period/system. Do NOT say "I can't give precise dates" — you have them here.)\n` +
+    ? `\n\nTIMING WINDOWS (real dates — these are the ONLY date facts you have. Use them WHENEVER you describe the current season or a shift in time: in a first reading's "Where your dots sit now" movement, AND whenever the user asks "when", "how long", "what dates", or "until when". Translate each into a concrete plain-language month/year window anchored on today, e.g. "this stretch runs until around September 2026". NEVER invent or guess a date or year that is not derived from the windows below — if you state a timeframe, it MUST come from here. NEVER name a planet/period/system. Do NOT say "I can't give precise dates" — you have them here.)\n` +
       timing.map((t) => "  - " + t).join("\n")
     : "";
 

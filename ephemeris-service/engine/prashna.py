@@ -104,6 +104,9 @@ def prashna_chart(tc, question_type: str = "general") -> dict:
     # ── Condition quality (dignity + placement of S and P) ──
     condition_quality = _condition_quality(planets, sp, asc_sign_idx)
 
+    # ── Dominant convergent signal (one force across multiple chart roles) ──
+    dominant_signals = _dominant_signals(sp, layer1, planets, udaya)
+
     return {
         "engine": "prashna-7layer-v3",
         "prashna_lagna": {
@@ -123,6 +126,7 @@ def prashna_chart(tc, question_type: str = "general") -> dict:
         "layer6_event_timing": layer6,
         "notable_signals": notable,
         "condition_quality": condition_quality,
+        "dominant_signals": dominant_signals,
     }
 
 
@@ -186,6 +190,52 @@ _HOUSE_THEME = {
     11: "gains, income, networks, fulfilment of desires",
     12: "endings, loss, letting go, foreign places, retreat",
 }
+
+
+def _planet_dignity(planet, planets):
+    """(dignity, plain-strength) for a planet, or ('', '') if not a real planet."""
+    from .constants import EXALTATION, DEBILITATION, OWN_SIGNS
+    if planet not in planets:
+        return "", ""
+    sign = planets[planet]["sign"]
+    if planet in EXALTATION and sign == EXALTATION[planet][0]:
+        return "exalted", "exceptionally strong"
+    if planet in DEBILITATION and sign == DEBILITATION[planet]:
+        return "debilitated", "weakened"
+    if planet in OWN_SIGNS and sign in OWN_SIGNS[planet]:
+        return "own sign", "solid, on home ground"
+    return "neutral", "workable"
+
+
+def _dominant_signals(sp, layer1, planets, udaya):
+    """Spec 8.3 — detect when ONE force converges across several chart roles
+    (significator, promittor/outcome, hour lord, vitality lord, arudha lord).
+    A planet holding 2+ roles — especially if exalted — is the single loudest
+    signal in the chart and must not be read past. Output names ROLES and
+    STRENGTH in plain terms only (never the planet), so the AI cannot leak it."""
+    lagna_lord = SIGN_LORDS[sign_of(udaya)]
+    roles: dict = {}
+
+    def add(planet, role):
+        if planet and planet in planets:
+            roles.setdefault(planet, set()).add(role)
+
+    add(sp.get("S"), "the querent (significator)")
+    add(sp.get("P"), "the outcome itself (promittor)")
+    add(lagna_lord, "the chart's rising force (lagna lord)")
+    add(layer1["kaala_hora"]["hora_lord"], "the ruler of the question's very hour")
+    add(layer1["trisphuta"].get("nakshatra_lord"), "the vitality / life-force of the matter")
+    add(layer1["arudha_lagna"].get("lord"), "how the matter outwardly appears (arudha lord)")
+
+    out = []
+    for planet, rset in roles.items():
+        if len(rset) < 2:
+            continue
+        dig, plain = _planet_dignity(planet, planets)
+        out.append({"role_count": len(rset), "roles": sorted(rset),
+                    "strength": plain or "workable", "dignity": dig or "neutral"})
+    out.sort(key=lambda x: (-x["role_count"], 0 if x["dignity"] == "exalted" else 1))
+    return out
 
 
 def _condition_quality(planets, sp, asc_sign_idx):
@@ -300,10 +350,15 @@ def _layer1_kerala(tc, udaya, asc_sign_idx, planets, moon, sp):
     for nd in ("Rahu", "Ketu"):
         if _orb(tris_lon, planets[nd]["lon"]) <= 3:
             tris_node = nd
+    _tv_dig, _tv_plain = _planet_dignity(tnlord, planets)
     trisphuta = {
         "sign": sign_of(tris_lon), "degree": round(deg_in_sign(tris_lon), 2),
         "house": house_from(asc_sign_idx, sign_index(tris_lon)),
         "nakshatra": tnaksh, "nakshatra_lord": tnlord,
+        # Vitality of the matter = the strength of the Trisphuta nakshatra lord.
+        # An exalted lord here means the matter itself has strong life-force,
+        # even if surface aspects (Eshrafa/VOC) say "not via this window".
+        "vitality": _tv_plain or "workable", "vitality_dignity": _tv_dig or "neutral",
         "node_within_3deg": tris_node,
     }
 

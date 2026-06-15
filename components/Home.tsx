@@ -61,7 +61,7 @@ export default function Home({
                 key={c.key}
                 onClick={() => onPick(c.key)}
                 aria-label={t(c.label)}
-                className="relative aspect-square rounded-2xl overflow-hidden bg-[#201f23] active:scale-[0.97] transition-transform"
+                className="relative aspect-square rounded-2xl overflow-hidden bg-[#242424] active:scale-[0.97] transition-transform"
               >
                 <img
                   src={`/figures/${c.key}.webp`}

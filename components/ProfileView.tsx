@@ -122,8 +122,8 @@ export default function ProfileView({
         <div className="mt-8 pt-6 border-t border-white/10 space-y-4">
           <p className="micro-label">{t("Settings")}</p>
           <button className="block text-sm text-[#d4d4d4]">{t("Notifications")}</button>
-          <button className="block text-sm text-[#d4d4d4]">{t("Privacy Policy")}</button>
-          <button className="block text-sm text-[#d4d4d4]">{t("Terms of Use")}</button>
+          <a href="/privacy" className="block text-sm text-[#d4d4d4]">{t("Privacy Policy")}</a>
+          <a href="/terms" className="block text-sm text-[#d4d4d4]">{t("Terms of Use")}</a>
           <button onClick={deleteAll} className="block text-sm text-red-400/80">
             {t("Delete my data")}
           </button>

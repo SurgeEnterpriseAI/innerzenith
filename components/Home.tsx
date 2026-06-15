@@ -61,13 +61,17 @@ export default function Home({
                 key={c.key}
                 onClick={() => onPick(c.key)}
                 aria-label={t(c.label)}
-                className="relative aspect-square rounded-2xl overflow-hidden bg-[#242424] active:scale-[0.97] transition-transform"
+                className="relative aspect-square active:scale-[0.97] transition-transform"
               >
+                {/* lighten blend drops the artwork's dark background down to the
+                    page colour, so the figure floats on the unified canvas
+                    instead of sitting in a distinct card (spec 7.1/7.2). */}
                 <img
                   src={`/figures/${c.key}.webp`}
                   alt={t(c.label)}
                   loading="lazy"
                   className="w-full h-full object-cover"
+                  style={{ mixBlendMode: "lighten" }}
                 />
               </button>
             ) : (
@@ -79,8 +83,7 @@ export default function Home({
           <button
             onClick={() => onPick("surprise")}
             aria-label={t(surprise.label)}
-            className="col-span-2 relative h-28 rounded-2xl overflow-hidden flex flex-col items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
-            style={{ background: TILE_BG }}
+            className="col-span-2 relative h-28 flex flex-col items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
           >
             <span className="relative flex items-center justify-center">
               <span

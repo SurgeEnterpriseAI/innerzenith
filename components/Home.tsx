@@ -11,7 +11,9 @@ import { FIGURES, Figure } from "@/lib/constellations";
 import { useT } from "@/lib/i18n";
 
 // Categories that have founder-provided artwork in /public/figures.
-const IMAGE_FIGURES = new Set<CategoryKey>(["career", "relationships", "property", "health"]);
+const IMAGE_FIGURES = new Set<CategoryKey>([
+  "career", "relationships", "property", "health", "money", "purpose",
+]);
 
 const TILE_BG = "radial-gradient(115% 100% at 50% 36%, #36343c 0%, #201f23 72%)";
 

@@ -9,6 +9,8 @@ const MAP = {
   relationships: "Gemini_Generated_Image_uatof0uatof0uato.png",
   health: "Gemini_Generated_Image_xaanbcxaanbcxaan.png",
   property: "Gemini_Generated_Image_tu7jgvtu7jgvtu7j.png",
+  money: "Gemini_Generated_Image_3vokoi3vokoi3vok.png",
+  purpose: "Gemini_Generated_Image_tu8erwtu8erwtu8e.png",
 };
 
 fs.mkdirSync("public/figures", { recursive: true });

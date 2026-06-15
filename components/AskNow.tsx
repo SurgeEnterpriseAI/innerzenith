@@ -43,7 +43,7 @@ export default function AskNow({ profile }: { profile: Profile }) {
     if (!s) {
       s = {
         id: newId(),
-        category: "surprise",
+        category: "asknow",
         isAskNow: true,
         keyword: firstUser ? firstUser.content.slice(0, 40) : "ask now",
         messages: msgs,

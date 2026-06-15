@@ -26,7 +26,7 @@ import LanguageToast from "@/components/LanguageToast";
 
 type View =
   | { kind: "tab"; tab: Tab }
-  | { kind: "session"; category: CategoryKey; existing?: Sess | null }
+  | { kind: "session"; category: CategoryKey | "asknow"; existing?: Sess | null }
   | { kind: "surprise" }
   | { kind: "edit" };
 
@@ -108,7 +108,7 @@ export default function Page() {
       <Session
         profile={profile}
         category={view.category}
-        isAskNow={false}
+        isAskNow={view.existing?.isAskNow ?? false}
         existing={view.existing ?? null}
         onBack={() => setView({ kind: "tab", tab: "home" })}
       />

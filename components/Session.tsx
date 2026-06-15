@@ -27,7 +27,7 @@ export default function Session({
   onBack,
 }: {
   profile: Profile;
-  category: CategoryKey;
+  category: CategoryKey | "asknow";
   isAskNow: boolean;
   askMoment?: Sess["askMoment"];
   existing?: Sess | null;

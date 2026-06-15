@@ -8,7 +8,7 @@ export type ChatMsg = { role: "user" | "assistant"; content: string };
 
 export type Session = {
   id: string;
-  category: CategoryKey;       // or "asknow"
+  category: CategoryKey | "asknow";
   isAskNow: boolean;
   keyword: string;            // extracted from first substantive user msg
   messages: ChatMsg[];
@@ -63,7 +63,7 @@ let counter = 0;
 // prior session for it created AFTER the current chart was computed. When birth
 // details change and the chart is recomputed, sinceISO advances, so every
 // category gives a fresh broad reading again (spec 6.3 "chart memory is reset").
-export function topicSeen(category: CategoryKey, sinceISO?: string | null): boolean {
+export function topicSeen(category: CategoryKey | "asknow", sinceISO?: string | null): boolean {
   return loadSessions().some(
     (s) =>
       s.category === category &&

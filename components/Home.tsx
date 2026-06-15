@@ -15,7 +15,8 @@ const IMAGE_FIGURES = new Set<CategoryKey>([
   "career", "relationships", "property", "health", "money", "purpose",
 ]);
 
-const TILE_BG = "radial-gradient(115% 100% at 50% 36%, #36343c 0%, #201f23 72%)";
+// Neutral salt-and-pepper card fill (spec 7.1a) — no warm/cool tint.
+const TILE_BG = "radial-gradient(115% 100% at 50% 36%, #353535 0%, #242424 72%)";
 
 export default function Home({
   profile,
@@ -88,7 +89,7 @@ export default function Home({
               />
               <span className="absolute -top-4 font-serif-i italic text-[#d4d4d4] text-sm">?</span>
             </span>
-            <span className="font-serif-i text-[15px] text-[#a9a6a0] mt-1.5">{t(surprise.label)}</span>
+            <span className="font-serif-i text-[15px] text-[#d4d4d4] mt-1.5">{t(surprise.label)}</span>
           </button>
         </div>
       </div>
@@ -151,7 +152,7 @@ function FigureTile({
           ))}
         </svg>
       </div>
-      <span className="font-serif-i text-[15px] text-[#a9a6a0] pb-4">{label}</span>
+      <span className="font-serif-i text-[15px] text-[#d4d4d4] pb-4">{label}</span>
     </button>
   );
 }

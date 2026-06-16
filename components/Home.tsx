@@ -79,20 +79,19 @@ export default function Home({
             )
           )}
 
-          {/* Surprise Me — full-width banner */}
+          {/* Surprise Me — full-width banner (founder artwork, merged) */}
           <button
             onClick={() => onPick("surprise")}
             aria-label={t(surprise.label)}
-            className="col-span-2 relative h-28 flex flex-col items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
+            className="col-span-2 relative flex items-center justify-center pt-1 active:scale-[0.98] transition-transform"
           >
-            <span className="relative flex items-center justify-center">
-              <span
-                className="block w-3 h-3 rounded-full bg-white dot-breathe"
-                style={{ filter: "drop-shadow(0 0 6px rgba(255,255,255,0.8))" }}
-              />
-              <span className="absolute -top-4 font-serif-i italic text-[#d4d4d4] text-sm">?</span>
-            </span>
-            <span className="font-serif-i text-[15px] text-[#d4d4d4] mt-1.5">{t(surprise.label)}</span>
+            <img
+              src="/figures/surprise.webp"
+              alt={t(surprise.label)}
+              loading="lazy"
+              className="h-40 w-auto object-contain"
+              style={{ mixBlendMode: "lighten" }}
+            />
           </button>
         </div>
       </div>

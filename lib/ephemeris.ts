@@ -241,7 +241,14 @@ const _CATEGORY_CHART: Record<string, { house: number; house2?: number; arudha?:
   purpose: { house: 9, arudha: "A9", varga: "D9", area: "meaning, direction, and purpose" },
 };
 
-export function categoryContext(profile: any, category?: string | null): string {
+// Houses where a slow transiting planet meaningfully colours each topic (spec 7.5
+// house schema "transit triggers"). Health watches body/illness/crisis/loss houses.
+const _TRANSIT_HOUSES: Record<string, number[]> = {
+  career: [10, 6, 11], relationships: [7, 2, 8], money: [2, 11, 5, 9],
+  property: [4, 2, 12], health: [1, 6, 8, 12], purpose: [9, 5, 12],
+};
+
+export function categoryContext(profile: any, category?: string | null, today?: any): string {
   if (!profile || !category) return "";
   const spec = _CATEGORY_CHART[category];
   const v = profile.vedic;
@@ -281,15 +288,40 @@ export function categoryContext(profile: any, category?: string | null): string 
     facts.push(`the way your ${spec.area} actually appears to others takes the shape of ${_HOUSE_LIFE[ah]}`);
   }
 
-  // Divisional dignity — the fine grain of the topic
+  // Divisional fine-grain (e.g. D6 for Health): the varga's own rising-force
+  // dignity, who sits in the topic-house of the varga, and any varga planet at
+  // an extreme of strength (spec 7.5 "D6 Lagna lord dignity / H6 occupants /
+  // exaltation-debilitation flagged").
   const varga = v.divisional_charts?.[spec.varga];
-  if (varga?.available && varga.planets) {
-    const lord = _SIGN_LORD[houseSignFor(spec.house)];
-    const vsign = varga.planets[lord];
-    if (vsign && _DEBIL[lord] === vsign)
-      facts.push(`in the fine grain of this area, that governing force is under strain and has to work harder to deliver`);
-    else if (vsign && _EXALT[lord] === vsign)
-      facts.push(`in the fine grain of this area, that governing force is unusually strong and well-supported`);
+  if (varga?.available && varga.planets && varga.lagna_sign) {
+    const vLagnaIdx = _SIGNS.indexOf(varga.lagna_sign);
+    const vLord = _SIGN_LORD[varga.lagna_sign];
+    const vlSign = varga.planets[vLord];
+    if (vlSign && _DEBIL[vLord] === vlSign)
+      facts.push(`in the deep grain of your ${spec.area}, the core thread is under strain and has to work harder`);
+    else if (vlSign && _EXALT[vLord] === vlSign)
+      facts.push(`in the deep grain of your ${spec.area}, the core thread is unusually strong and well-supported`);
+    if (vLagnaIdx >= 0) {
+      const vHouseSign = _SIGNS[(vLagnaIdx + spec.house - 1) % 12];
+      const vOcc = Object.keys(varga.planets).filter((nm) => varga.planets[nm] === vHouseSign && planetTheme(nm)).map((nm) => planetTheme(nm));
+      if (vOcc.length) facts.push(`deep inside this area sit forces of ${vOcc.join("; ")}`);
+    }
+    const strong = Object.keys(varga.planets).filter((nm) => _EXALT[nm] === varga.planets[nm] && planetTheme(nm)).map((nm) => planetTheme(nm));
+    const weak = Object.keys(varga.planets).filter((nm) => _DEBIL[nm] === varga.planets[nm] && planetTheme(nm)).map((nm) => planetTheme(nm));
+    if (strong.length) facts.push(`here, ${strong.join("; ")} run exceptionally strong`);
+    if (weak.length) facts.push(`here, ${weak.join("; ")} are weakened and need conscious support`);
+  }
+
+  // Transit triggers — slow planets (Saturn/Jupiter/Rahu/Ketu) currently passing
+  // through this topic's key houses. Live, not natal (spec 7.5 house schema).
+  if (today?.slow_transits) {
+    const watch = _TRANSIT_HOUSES[category] || [spec.house];
+    const hits = Object.entries(today.slow_transits)
+      .map(([planet, sign]: any) => ({ planet, h: houseOf(sign as string) }))
+      .filter((x) => watch.includes(x.h) && planetTheme(x.planet))
+      .map((x) => `${planetTheme(x.planet)} is passing through the part of life about ${_HOUSE_LIFE[x.h]}`);
+    if (hits.length)
+      facts.push(`RIGHT NOW in transit (live, not part of the birth pattern): ${hits.join("; ")} — name this as a current, time-bound influence`);
   }
 
   if (!facts.length) return "";
@@ -340,10 +372,34 @@ export function timeDrilldown(profile: any, conversationText: string): string {
     out.map((o) => "  - " + o).join("\n");
 }
 
-/** Resolve current major/sub period live from the stored Vimshottari timeline
- *  against today's date (spec 2.12 — a date-range lookup, not a recompute). */
+const _VIM_ORDER = ["Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "Saturn", "Mercury"];
+const _VIM_YEARS: Record<string, number> = {
+  Ketu: 7, Venus: 20, Sun: 6, Moon: 10, Mars: 7, Rahu: 18, Jupiter: 16, Saturn: 19, Mercury: 17,
+};
+
+/** Current Pratyantardasha (3rd level) — subdivide the running Antardasha into 9
+ *  sub-sub-periods (Vimshottari proportions, starting from the Antardasha lord)
+ *  and return the one containing today. Spec 2.12 / 8.12. */
+function currentPratyantar(antarLord: string, startISO: string, endISO: string, todayMs: number) {
+  const s = Date.parse(startISO), e = Date.parse(endISO);
+  if (!(s < e) || todayMs < s || todayMs >= e) return null;
+  const span = e - s;
+  const startIdx = _VIM_ORDER.indexOf(antarLord);
+  if (startIdx < 0) return null;
+  let cursor = s;
+  for (let k = 0; k < 9; k++) {
+    const lord = _VIM_ORDER[(startIdx + k) % 9];
+    cursor += span * (_VIM_YEARS[lord] / 120);
+    if (todayMs < cursor) return { lord, end: new Date(cursor).toISOString().slice(0, 10) };
+  }
+  return null;
+}
+
+/** Resolve current major/sub/sub-sub period live from the stored Vimshottari
+ *  timeline against today's date (spec 2.12 — a date-range lookup, not a recompute). */
 function resolveCurrentPeriods(profile: any): {
   maha?: string; maha_end?: string; antar?: string; antar_end?: string; next_antar_start?: string;
+  pratyantar?: string; pratyantar_end?: string;
 } {
   const timeline = profile?.vedic?.vimshottari?.timeline;
   if (!Array.isArray(timeline)) return {};
@@ -357,6 +413,8 @@ function resolveCurrentPeriods(profile: any): {
           out.antar = ads[i].lord;
           out.antar_end = ads[i].end;
           if (i + 1 < ads.length) out.next_antar_start = ads[i + 1].start;
+          const pd = currentPratyantar(ads[i].lord, ads[i].start, ads[i].end, Date.now());
+          if (pd) { out.pratyantar = pd.lord; out.pratyantar_end = pd.end; }
           break;
         }
       }
@@ -366,14 +424,22 @@ function resolveCurrentPeriods(profile: any): {
   return {};
 }
 
-/** Global "now" snapshot for the Surprise Me micro layer. */
-export async function fetchToday(): Promise<any | null> {
+/** Global "now" snapshot for the Surprise Me micro layer + transit triggers.
+ *  Passing the user's coords also yields the current Hora lord at their location. */
+export async function fetchToday(
+  loc?: { lat?: number | null; lon?: number | null; tz?: string | null },
+  timeoutMs = 55000
+): Promise<any | null> {
   const b = base();
   if (!b) return null;
+  let url = `${b}/today`;
+  if (loc && loc.lat != null && loc.lon != null && loc.tz) {
+    url += `?lat=${loc.lat}&lon=${loc.lon}&tz=${encodeURIComponent(loc.tz)}`;
+  }
   try {
-    const res = await fetch(`${b}/today`, {
+    const res = await fetch(url, {
       headers: { "X-Ephemeris-Secret": process.env.EPHEMERIS_SHARED_SECRET || "" },
-      signal: AbortSignal.timeout(55000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     return res.ok ? await res.json() : null;
   } catch {
@@ -415,6 +481,7 @@ export function buildSurpriseContext(
   const dom: string[] = [];
   if (cur.maha) dom.push(`major life-period: ${cur.maha} (until ${cur.maha_end})`);
   if (cur.antar) dom.push(`current sub-period: ${cur.antar} (until ${cur.antar_end})`);
+  if (cur.pratyantar) dom.push(`current sub-sub-period (the immediate, near-term flavour shaping THIS stretch): ${cur.pratyantar} (until ${cur.pratyantar_end})`);
   if (luck) dom.push(`current 10-yr luck pillar: ${luck.stem} ${luck.animal} (${luck.stem_element})`);
   if (daxian) dom.push(`current 10-yr palace: ${daxian.palace} [${(daxian.stars || []).join(", ")}]`);
   if (narayana) dom.push(`environment-period sign: ${narayana}`);
@@ -422,6 +489,8 @@ export function buildSurpriseContext(
   const micro: string[] = [];
   if (today?.moon_sign) micro.push(`today the Moon sits in ${today.moon_sign} (${today.moon_nakshatra})`);
   if (today?.day_lord) micro.push(`today's day-energy: ${today.day_lord}`);
+  if (today?.hora_lord) micro.push(`the ruling hour of this very moment is governed by ${today.hora_lord}`);
+  if (today?.tithi) micro.push(`lunar day ${today.tithi}, ${today.paksha === "Shukla" ? "waxing — energy building" : "waning — energy releasing"} phase; the day's overall weave is ${today.yoga_quality}`);
   if (today?.bazi_year_pillar) micro.push(`this year: ${today.bazi_year_pillar.stem} ${today.bazi_year_pillar.animal}`);
 
   const noTime = !birthTimeKnown;

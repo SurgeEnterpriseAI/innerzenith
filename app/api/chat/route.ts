@@ -142,7 +142,10 @@ export async function POST(req: NextRequest) {
     // Surprise Me — two-layer reading from the stored chart + today's sky.
     if (body.chartProfile) {
       system += "\n\n" + chartToContext(body.chartProfile, body.profile?.current_city);
-      const today = await fetchToday();
+      // Pass the user's location so today's snapshot includes the Hora lord.
+      const today = await fetchToday({
+        lat: body.profile?.birth_lat, lon: body.profile?.birth_lng, tz: body.profile?.birth_timezone,
+      });
       system += "\n\n" + buildSurpriseContext(
         body.chartProfile,
         body.profile?.birth_date ?? null,
@@ -192,8 +195,11 @@ export async function POST(req: NextRequest) {
   } else if (body.chartProfile) {
     // Natal — chart computed once at onboarding and stored client-side.
     system += "\n\n" + chartToContext(body.chartProfile, body.profile?.current_city);
+    // Today's slow-planet transits for this topic's houses (best-effort; a cold
+    // engine just skips them rather than holding up the reading).
+    const todayTransits = await fetchToday(undefined, 10000);
     // Topic-specific chart geometry (spec 7.5 category slice), in plain language.
-    system += categoryContext(body.chartProfile, body.category);
+    system += categoryContext(body.chartProfile, body.category, todayTransits);
     // Dynamic time-drilldown: if the conversation mentions a year, append it.
     const convoText = body.messages.map((m) => m.content).join(" ");
     system += timeDrilldown(body.chartProfile, convoText);

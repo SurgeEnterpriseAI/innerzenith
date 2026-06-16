@@ -113,11 +113,19 @@ def context(req: ContextRequest, x_ephemeris_secret: Optional[str] = Header(None
     return ck.context_slice(req.profile, req.category)
 
 
+# The 9 inauspicious Nitya Yogas (the other 18 are benefic/neutral).
+_MALEFIC_YOGAS = {1, 6, 9, 10, 13, 15, 17, 19, 27}  # Vishkambha, Atiganda, Shula, Ganda, Vyaghata, Vajra, Vyatipata, Parigha, Vaidhriti
+
+
 @app.get("/today")
-def today(x_ephemeris_secret: Optional[str] = Header(None)):
+def today(x_ephemeris_secret: Optional[str] = Header(None),
+          lat: Optional[float] = None, lon: Optional[float] = None,
+          tz: Optional[str] = None):
     """Global 'now' snapshot for the Surprise Me micro layer (no birth data):
-    today's Moon sign + nakshatra, the weekday (KP) day lord, and the BaZi
-    annual pillar. Shared across all users."""
+    Moon sign + nakshatra, day lord, BaZi annual pillar, Panchanga (Tithi +
+    Paksha + Yoga, from Sun+Moon — location-independent), and slow-planet transit
+    signs (Saturn/Jupiter/Rahu/Ketu). If lat/lon/tz are given, also the current
+    Hora lord at the user's location (sunrise-based, like Ask Now)."""
     auth(x_ephemeris_secret)
     import swisseph as swe
     from engine.vedic import sign_of, nakshatra_of, norm360
@@ -127,21 +135,50 @@ def today(x_ephemeris_secret: Optional[str] = Header(None)):
                     now.hour + now.minute / 60.0)
     swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     mpos, _ = swe.calc_ut(jd, swe.MOON, swe.FLG_SIDEREAL)
-    mlon = norm360(mpos[0])
+    spos, _ = swe.calc_ut(jd, swe.SUN, swe.FLG_SIDEREAL)
+    mlon = norm360(mpos[0]); slon = norm360(spos[0])
     naksh, pada, nlord, _, _ = nakshatra_of(mlon)
+    # Panchanga (spec 8.12) — Tithi, Paksha, Yoga from Sun & Moon only.
+    tithi = int(((mlon - slon) % 360) / 12) + 1            # 1..30
+    paksha = "Shukla" if tithi <= 15 else "Krishna"        # waxing / waning
+    yoga_num = int(((slon + mlon) % 360) / (360 / 27)) + 1  # 1..27
+    yoga_quality = "challenging" if yoga_num in _MALEFIC_YOGAS else "supportive"
+    # Slow-planet transit signs (sidereal) for transit triggers (spec 7.5).
+    slow = {}
+    for nm, code in (("Saturn", swe.SATURN), ("Jupiter", swe.JUPITER)):
+        p, _ = swe.calc_ut(jd, code, swe.FLG_SIDEREAL)
+        slow[nm] = sign_of(norm360(p[0]))
+    rpos, _ = swe.calc_ut(jd, swe.MEAN_NODE, swe.FLG_SIDEREAL)
+    rahu = norm360(rpos[0])
+    slow["Rahu"] = sign_of(rahu); slow["Ketu"] = sign_of(norm360(rahu + 180))
     day_lords = {0: "Moon", 1: "Mars", 2: "Mercury", 3: "Jupiter",
                  4: "Venus", 5: "Saturn", 6: "Sun"}  # Mon..Sun
     ystem = STEMS[(now.year - 4) % 10]
     ybranch = BRANCHES[(now.year - 4) % 12]
     yanimal = BRANCH_ANIMAL[(now.year - 4) % 12]
-    return {
+    out = {
         "date": now.date().isoformat(),
         "moon_sign": sign_of(mlon),
         "moon_nakshatra": naksh,
         "moon_nakshatra_lord": nlord,
         "day_lord": day_lords[now.weekday()],
         "bazi_year_pillar": {"stem": ystem, "branch": ybranch, "animal": yanimal},
+        "tithi": tithi, "paksha": paksha,
+        "yoga_number": yoga_num, "yoga_quality": yoga_quality,
+        "slow_transits": slow,
     }
+    # Location-aware Hora lord at session open (spec 7.5 Surprise Me).
+    if lat is not None and lon is not None and tz:
+        try:
+            import pytz
+            local = datetime.now(pytz.timezone(tz))
+            tc = build_time_context(local.strftime("%Y-%m-%d"),
+                                    local.strftime("%H:%M:%S"), lat, lon, tz)
+            from engine.prashna import _kaala_hora
+            out["hora_lord"] = _kaala_hora(tc).get("hora_lord")
+        except Exception:
+            pass
+    return out
 
 
 @app.post("/prashna")

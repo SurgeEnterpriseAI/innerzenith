@@ -107,6 +107,14 @@ def prashna_chart(tc, question_type: str = "general") -> dict:
     # ── Dominant convergent signal (one force across multiple chart roles) ──
     dominant_signals = _dominant_signals(sp, layer1, planets, udaya)
 
+    # ── Chart dynamics: velocity (converging/separating), an aspect about to
+    #    switch on at a sign change, and any planet at a standstill. These three
+    #    answer "which way is this moving, and what is about to change" — the AI
+    #    states direction ONLY from velocity_check.direction, never from the yoga.
+    velocity_check = layer4.get("velocity")
+    sign_change_approaching = _approaching_sign_change(planets, sp)
+    stationing = _stationing(planets)
+
     return {
         "engine": "prashna-7layer-v3",
         "prashna_lagna": {
@@ -127,6 +135,9 @@ def prashna_chart(tc, question_type: str = "general") -> dict:
         "notable_signals": notable,
         "condition_quality": condition_quality,
         "dominant_signals": dominant_signals,
+        "velocity_check": velocity_check,
+        "sign_change_approaching": sign_change_approaching,
+        "stationing": stationing,
     }
 
 
@@ -517,6 +528,101 @@ _ASPECT_MATRIX = {
 }
 
 
+def _velocity(ps, pp):
+    """Spec Planetary Speed Index — the absolute gap direction between two bodies,
+    decided by their PROJECTED positions one day on (lon + speed), never by a
+    within-sign degree comparison. Valid for ANY relationship, including
+    Asambandhah/Durapha where no Tajika aspect exists. This is the only authority
+    on 'converging vs separating'; the yoga name must never be used to infer it.
+
+    Pankhuri's case: S and P 4.28° apart with the gap closing 1.4°/day must read
+    as CLOSING even though the signs are Asambandhah and the yoga is Durapha.
+    """
+    gap_now = _orb(ps["lon"], pp["lon"])
+    s_next = norm360(ps["lon"] + ps["speed"])
+    p_next = norm360(pp["lon"] + pp["speed"])
+    gap_next = _orb(s_next, p_next)
+    rate = gap_now - gap_next  # +ve = closing, -ve = opening
+    if rate > 0.03:
+        direction = "closing"
+    elif rate < -0.03:
+        direction = "opening"
+    else:
+        direction = "stable"
+    days = round(gap_now / abs(rate), 1) if direction == "closing" and abs(rate) > 1e-4 else None
+    return {
+        "gap_now": round(gap_now, 2),
+        "gap_tomorrow": round(gap_next, 2),
+        "direction": direction,
+        "deg_per_day": round(abs(rate), 3),
+        "days_to_exact": days,  # only meaningful while closing
+    }
+
+
+def _approaching_sign_change(planets, sp):
+    """Flag the significator or promittor within ~3.5° of the sign boundary it is
+    travelling toward, and whether crossing it forms a NEW Tajika contact with the
+    other (spec sign_change_approaching). Catches 'Mercury 2.26° from Cancer, where
+    Jupiter sits — Ithasala/Ekatva forms in ~3 days'. Direction of travel respects
+    retrograde motion. Without this, a contact about to switch on is invisible."""
+    S, P = sp.get("S"), sp.get("P")
+    out = []
+    for role, name in (("significator", S), ("promittor", P)):
+        if name not in planets:
+            continue
+        d = planets[name]
+        spd = d["speed"]
+        if abs(spd) < 1e-4:
+            continue
+        forward = spd > 0
+        to_boundary = (30 - d["deg"]) if forward else d["deg"]
+        if to_boundary > 3.5:
+            continue
+        cur_idx = sign_index(d["lon"])
+        new_idx = (cur_idx + (1 if forward else -1)) % 12
+        # Does crossing into new_idx create a contact with the OTHER significator?
+        other = P if role == "significator" else S
+        forms = None
+        if other in planets:
+            ndist = house_from(new_idx, sign_index(planets[other]["lon"]))
+            nname, nnature = _ASPECT_MATRIX[ndist]
+            if nname != "Asambandhah":
+                forms = "Ekatva (same sign — strongest contact)" if ndist == 1 else f"{nname} ({nnature})"
+        out.append({
+            "who": role,
+            "planet": name,
+            "into_sign": SIGNS[new_idx],
+            "degrees_away": round(to_boundary, 2),
+            "days_away": round(to_boundary / abs(spd), 1),
+            "forms_with_other": forms,
+        })
+    return out
+
+
+# A planet is "stationing" when its daily motion is near zero — about to turn
+# retrograde or direct. Thresholds are a small fraction of each planet's mean
+# speed. Saturn ≈ 0 in the Lagna is among the most decisive Prashna timing signals.
+_STATION_THRESHOLD = {"Mercury": 0.25, "Venus": 0.20, "Mars": 0.12, "Jupiter": 0.05, "Saturn": 0.035}
+
+
+def _stationing(planets):
+    """Flag any classical planet whose motion is near a standstill — a turning
+    point in the matter (spec station_approaching). Direction inferred from the
+    sign of the residual speed: a still-direct planet slowing to zero is about to
+    go retrograde; a still-retrograde planet slowing is about to resume direct."""
+    out = []
+    for nm in ("Mercury", "Venus", "Mars", "Jupiter", "Saturn"):
+        if nm not in planets:
+            continue
+        spd = planets[nm]["speed"]
+        if abs(spd) < _STATION_THRESHOLD[nm]:
+            turning = "about to turn retrograde (a pause, then a reversal)" if spd > 0 \
+                else "about to resume direct motion (a stall now lifting)"
+            out.append({"planet": nm, "sign": planets[nm]["sign"],
+                        "speed": round(spd, 4), "turning": turning})
+    return out
+
+
 def _layer4_tajika(planets, sp, moon):
     S, P = sp["S"], sp["P"]
     if S not in planets or P not in planets:
@@ -526,8 +632,13 @@ def _layer4_tajika(planets, sp, moon):
     dist = house_from(sign_index(ps["lon"]), sign_index(pp["lon"]))
     aspect_name, aspect_nature = _ASPECT_MATRIX[dist]
 
-    # Step 2 — Deethi orb (only if a valid aspect, i.e. not Asambandhah)
-    yoga = None; retro_ith = False; details = {}
+    # VELOCITY CHECK (spec Planetary Speed Index) — ALWAYS computed from projected
+    # positions tomorrow (lon + speed), so the absolute gap direction is known
+    # even when the relationship is Asambandhah/Durapha. This is the authority on
+    # "are they converging or separating" — never infer it from the yoga alone.
+    vel = _velocity(ps, pp)
+
+    yoga = None; retro_ith = False; details = {"velocity": vel}
     if aspect_name == "Asambandhah":
         # scan Nakta bridge via Moon
         nakta = _nakta_bridge(planets, S, P, moon)
@@ -535,19 +646,19 @@ def _layer4_tajika(planets, sp, moon):
         details["nakta_bridge"] = nakta
     else:
         orb = (DEETHI.get(S, 8) + DEETHI.get(P, 8)) / 2.0
-        sep = _orb(ps["lon"], pp["lon"])
+        sep = vel["gap_now"]
         within = sep <= orb
         # Kamboola — mutual reception
         kamboola = SIGN_LORDS[ps["sign"]] == P and SIGN_LORDS[pp["sign"]] == S
         if dist == 1:
             yoga = "Ekatva"
         elif within:
-            faster = S if SPEED_RANK[S] >= SPEED_RANK[P] else P
-            slower = P if faster == S else S
-            applying = planets[faster]["deg"] < planets[slower]["deg"]
+            # Applying = the gap is CLOSING (projected), not a within-sign degree
+            # comparison — works across sign boundaries and for retrograde motion.
+            applying = vel["direction"] == "closing"
             if applying:
                 yoga = "Ithasala"
-                retro_ith = planets[faster]["retro"] or planets[slower]["retro"]
+                retro_ith = ps["retro"] or pp["retro"]
             else:
                 yoga = "Eshrafa"
         else:

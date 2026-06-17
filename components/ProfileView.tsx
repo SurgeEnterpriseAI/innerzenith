@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { Profile, clearProfile, saveProfile } from "@/lib/profile";
 import { clearAllSessions } from "@/lib/sessions";
+import { deleteAccountRemote } from "@/lib/sync";
 import { LANGUAGES } from "@/lib/languages";
 import { useT } from "@/lib/i18n";
 import AccountSync from "./AccountSync";
@@ -33,11 +34,18 @@ export default function ProfileView({
     onChange(updated);
   }
 
-  function deleteAll() {
-    if (!confirm(t("Delete your dotit profile and all sessions on this device? This cannot be undone."))) return;
-    clearProfile();
-    clearAllSessions();
-    onReset();
+  const [deleting, setDeleting] = useState(false);
+  async function deleteAll() {
+    if (deleting) return;
+    if (!confirm(t("Permanently delete your dotit account and all your data — your profile, chart, and conversations — from this device and our servers? This cannot be undone."))) return;
+    setDeleting(true);
+    try {
+      await deleteAccountRemote(); // server-side wipe + sign-out (no-op if local-only)
+    } finally {
+      clearProfile();
+      clearAllSessions();
+      onReset();
+    }
   }
 
   function clearHistory() {
@@ -124,8 +132,8 @@ export default function ProfileView({
           <button className="block text-sm text-[#d4d4d4]">{t("Notifications")}</button>
           <a href="/privacy" className="block text-sm text-[#d4d4d4]">{t("Privacy Policy")}</a>
           <a href="/terms" className="block text-sm text-[#d4d4d4]">{t("Terms of Use")}</a>
-          <button onClick={deleteAll} className="block text-sm text-red-400/80">
-            {t("Delete my data")}
+          <button onClick={deleteAll} disabled={deleting} className="block text-sm text-red-400/80 disabled:opacity-50">
+            {deleting ? t("Deleting…") : t("Delete my data")}
           </button>
         </div>
 

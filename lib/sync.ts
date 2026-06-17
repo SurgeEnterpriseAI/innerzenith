@@ -244,6 +244,35 @@ export function clearProfileRemote(): void {
   })();
 }
 
+/**
+ * Permanently delete the signed-in user's account and ALL their data, server-side
+ * (DPDP / app-store requirement). Calls the `delete_account` SECURITY DEFINER
+ * function, which removes their rows and the auth user (cascade) — no service_role
+ * in the app. If that function isn't installed yet, falls back to deleting every
+ * table the authenticated client is allowed to (RLS = own rows), so personal data
+ * is erased regardless. Then signs out. Returns true if the server wipe succeeded.
+ */
+export async function deleteAccountRemote(): Promise<boolean> {
+  if (!supabaseConfigured) return true; // local-only install — nothing remote
+  try {
+    const u = await authUser();
+    const sb = getBrowserSupabase();
+    if (!u || !sb) return true; // not signed in — no remote data exists
+    const { error } = await sb.rpc("delete_account");
+    if (error) {
+      // RPC not installed → erase the data rows the client can reach itself.
+      await sb.from("app_sessions").delete().eq("user_id", u.id);
+      await sb.from("app_surprise").delete().eq("user_id", u.id);
+      await sb.from("app_profile").delete().eq("user_id", u.id);
+    }
+    await sb.auth.signOut();
+    cachedUser = null;
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
 export function pushSurprise(day: string, text: string): void {
   if (!supabaseConfigured) return;
   void (async () => {

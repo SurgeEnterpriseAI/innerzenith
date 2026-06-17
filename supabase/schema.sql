@@ -69,3 +69,24 @@ create policy "own sessions" on app_sessions
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own surprise" on app_surprise
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- ─── Self-service account deletion (DPDP + App Store / Play requirement) ────
+-- An authenticated user erases their OWN account and all data in one call.
+-- SECURITY DEFINER runs as the function owner (postgres) so it can delete the
+-- auth user — which cascades app_profile/app_sessions/app_surprise — WITHOUT the
+-- app ever holding the service_role key. Run this once in the Supabase SQL editor.
+create or replace function public.delete_account()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.app_sessions where user_id = auth.uid();
+  delete from public.app_surprise where user_id = auth.uid();
+  delete from public.app_profile  where user_id = auth.uid();
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+revoke all on function public.delete_account() from public, anon;
+grant execute on function public.delete_account() to authenticated;

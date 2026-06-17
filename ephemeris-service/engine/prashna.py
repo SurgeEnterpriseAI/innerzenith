@@ -108,12 +108,14 @@ def prashna_chart(tc, question_type: str = "general") -> dict:
     dominant_signals = _dominant_signals(sp, layer1, planets, udaya)
 
     # ── Chart dynamics: velocity (converging/separating), an aspect about to
-    #    switch on at a sign change, and any planet at a standstill. These three
+    #    switch on at a sign change, and any role-planet about to station. These
     #    answer "which way is this moving, and what is about to change" — the AI
     #    states direction ONLY from velocity_check.direction, never from the yoga.
     velocity_check = layer4.get("velocity")
-    sign_change_approaching = _approaching_sign_change(planets, sp)
-    stationing = _stationing(planets)
+    # Sign-change is consulted ONLY after a Durapha / Asambandhah (spec 8.6).
+    _no_contact = layer4.get("yoga") == "Durapha" or layer4.get("aspect", {}).get("name") == "Asambandhah"
+    sign_change_approaching = _approaching_sign_change(planets, sp) if _no_contact else []
+    station_approaching = _station_approaching(tc, planets, sp, moon)
 
     return {
         "engine": "prashna-7layer-v3",
@@ -137,7 +139,7 @@ def prashna_chart(tc, question_type: str = "general") -> dict:
         "dominant_signals": dominant_signals,
         "velocity_check": velocity_check,
         "sign_change_approaching": sign_change_approaching,
-        "stationing": stationing,
+        "station_approaching": station_approaching,
     }
 
 
@@ -560,11 +562,13 @@ def _velocity(ps, pp):
 
 
 def _approaching_sign_change(planets, sp):
-    """Flag the significator or promittor within ~3.5° of the sign boundary it is
-    travelling toward, and whether crossing it forms a NEW Tajika contact with the
-    other (spec sign_change_approaching). Catches 'Mercury 2.26° from Cancer, where
-    Jupiter sits — Ithasala/Ekatva forms in ~3 days'. Direction of travel respects
-    retrograde motion. Without this, a contact about to switch on is invisible."""
+    """Spec 8.6 — Sign Change Approaching. Consulted ONLY after a Durapha /
+    Asambandhah (no current contact). If the significator or promittor is within
+    3° of the sign boundary it is travelling toward, AND crossing it would form a
+    new aspect or Ekatva with the OTHER planet, emit [planet, days to crossing,
+    resulting aspect]. The Durapha stays the verdict; the AI notes the imminent
+    connection. If crossing still forms no contact, nothing is emitted. Direction
+    of travel respects retrograde motion."""
     S, P = sp.get("S"), sp.get("P")
     out = []
     for role, name in (("significator", S), ("promittor", P)):
@@ -576,50 +580,75 @@ def _approaching_sign_change(planets, sp):
             continue
         forward = spd > 0
         to_boundary = (30 - d["deg"]) if forward else d["deg"]
-        if to_boundary > 3.5:
+        if to_boundary > 3.0:  # spec: within 3°
             continue
-        cur_idx = sign_index(d["lon"])
-        new_idx = (cur_idx + (1 if forward else -1)) % 12
-        # Does crossing into new_idx create a contact with the OTHER significator?
         other = P if role == "significator" else S
-        forms = None
-        if other in planets:
-            ndist = house_from(new_idx, sign_index(planets[other]["lon"]))
-            nname, nnature = _ASPECT_MATRIX[ndist]
-            if nname != "Asambandhah":
-                forms = "Ekatva (same sign — strongest contact)" if ndist == 1 else f"{nname} ({nnature})"
+        if other not in planets:
+            continue
+        new_idx = (sign_index(d["lon"]) + (1 if forward else -1)) % 12
+        ndist = house_from(new_idx, sign_index(planets[other]["lon"]))
+        nname, nnature = _ASPECT_MATRIX[ndist]
+        if nname == "Asambandhah":
+            continue  # crossing still forms no contact — nothing imminent
+        resulting = "Ekatva (same sign — strongest contact)" if ndist == 1 else f"{nname} ({nnature})"
         out.append({
             "who": role,
             "planet": name,
             "into_sign": SIGNS[new_idx],
-            "degrees_away": round(to_boundary, 2),
-            "days_away": round(to_boundary / abs(spd), 1),
-            "forms_with_other": forms,
+            "degrees_to_crossing": round(to_boundary, 2),
+            "days_to_crossing": round(to_boundary / abs(spd), 1),
+            "resulting_aspect": resulting,
         })
     return out
 
 
-# A planet is "stationing" when its daily motion is near zero — about to turn
-# retrograde or direct. Thresholds are a small fraction of each planet's mean
-# speed. Saturn ≈ 0 in the Lagna is among the most decisive Prashna timing signals.
-_STATION_THRESHOLD = {"Mercury": 0.25, "Venus": 0.20, "Mars": 0.12, "Jupiter": 0.05, "Saturn": 0.035}
+def _station_approaching(tc, planets, sp, moon):
+    """Spec 8.5 Critical Gap 1 — Station Approaching Flag. If a planet whose role
+    is the significator (S), promittor (P), or the current (Prashna) dasha lord has
+    |daily speed| below 0.05°/day AND will station (speed crosses zero) within 7
+    days, surface it as the PRIMARY timing signal — a planet at a standstill is
+    momentum about to reverse or release. Saturn stationing retrograde in the Lagna
+    was the dominant signal the engine kept missing in four readings.
 
+    Days-to-station = the linear extrapolation of speed to zero, using the planet's
+    acceleration (central difference of speed at ±1 day). A planet just PAST its
+    station (speed moving away from zero) extrapolates to a negative time and is
+    correctly excluded — only the approach is flagged."""
+    swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
+    flag = swe.FLG_SIDEREAL | swe.FLG_SPEED
+    # In a Prashna chart the maha-dasha lord is the Moon's nakshatra lord (the
+    # dasha clock starts at the question moment, so the first lord rules now).
+    dasha_lord = nakshatra_of(moon)[2]
 
-def _stationing(planets):
-    """Flag any classical planet whose motion is near a standstill — a turning
-    point in the matter (spec station_approaching). Direction inferred from the
-    sign of the residual speed: a still-direct planet slowing to zero is about to
-    go retrograde; a still-retrograde planet slowing is about to resume direct."""
+    roles = {}
+    for role, nm in (("significator", sp.get("S")), ("promittor", sp.get("P")),
+                     ("current dasha lord", dasha_lord)):
+        # Nodes never station (constant mean motion) and Sun/Moon never go
+        # retrograde, so only the five star-planets can qualify — SWE_PLANETS keys.
+        if nm in SWE_PLANETS:
+            roles.setdefault(nm, []).append(role)
+
     out = []
-    for nm in ("Mercury", "Venus", "Mars", "Jupiter", "Saturn"):
-        if nm not in planets:
-            continue
+    for nm, role_list in roles.items():
         spd = planets[nm]["speed"]
-        if abs(spd) < _STATION_THRESHOLD[nm]:
-            turning = "about to turn retrograde (a pause, then a reversal)" if spd > 0 \
-                else "about to resume direct motion (a stall now lifting)"
-            out.append({"planet": nm, "sign": planets[nm]["sign"],
-                        "speed": round(spd, 4), "turning": turning})
+        if abs(spd) >= 0.05:
+            continue
+        code = SWE_PLANETS[nm]
+        s_prev = swe.calc_ut(tc.jd_ut - 1, code, flag)[0][3]
+        s_next = swe.calc_ut(tc.jd_ut + 1, code, flag)[0][3]
+        accel = (s_next - s_prev) / 2.0  # °/day per day
+        if abs(accel) < 1e-6:
+            continue
+        days = -spd / accel  # speed(t) = spd + accel·t = 0
+        if days < 0 or days > 7:
+            continue
+        station_type = "retrograde" if spd > 0 else "direct"  # the station it is heading into
+        out.append({
+            "role": " & ".join(role_list),
+            "planet_motion_now": "direct" if spd > 0 else "retrograde",
+            "stationing": station_type,
+            "days_to_station": round(days, 1),
+        })
     return out
 
 

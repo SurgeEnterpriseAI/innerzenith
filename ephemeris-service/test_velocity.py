@@ -10,7 +10,7 @@ Rule under test (verbatim from her): "Run a test case where S and P are in
 adjacent signs but closing — confirm the engine reports the absolute gap
 direction correctly even when the sign relationship is Asambandhah."
 """
-from engine.prashna import _velocity, _layer4_tajika, _approaching_sign_change, _stationing
+from engine.prashna import _velocity, _layer4_tajika, _approaching_sign_change
 
 GREEN = "\033[92m"; RED = "\033[91m"; OFF = "\033[0m"
 fails = 0
@@ -58,7 +58,7 @@ v2 = _velocity(S2, P2)
 print("  velocity:", v2)
 check("direction is OPENING", v2["direction"], "opening")
 
-print("\n— Sign-change-approaching: Mercury 2.26° from Cancer, Jupiter in Cancer —")
+print("\n— Sign-change-approaching (spec 8.6): Mercury 2.26° from Cancer, Jupiter in Cancer —")
 # Mercury at 27.74° Gemini (lon 87.74), direct; Jupiter at 5° Cancer (lon 95).
 # Crossing into Cancer makes Mercury share Jupiter's sign -> Ekatva forms.
 sc = _approaching_sign_change(
@@ -66,16 +66,18 @@ sc = _approaching_sign_change(
     {"S": "Mercury", "P": "Jupiter"})
 print("  sign_change_approaching:", sc)
 check("one flag raised", len(sc), 1)
-check("Mercury 2.26° from Cancer", sc[0]["degrees_away"], 2.26)
+check("Mercury 2.26° from Cancer", sc[0]["degrees_to_crossing"], 2.26)
 check("entering Cancer", sc[0]["into_sign"], "Cancer")
-check("forms Ekatva with the other", sc[0]["forms_with_other"].startswith("Ekatva"), True)
+check("resulting_aspect is Ekatva", sc[0]["resulting_aspect"].startswith("Ekatva"), True)
 
-print("\n— Stationing: Saturn near a standstill —")
-st = _stationing({"Saturn": planet(220.0, 0.02), "Mars": planet(40.0, 0.55),
-                  "Jupiter": planet(95.0, 0.40)})
-print("  stationing:", st)
-check("Saturn flagged stationing", any(s["planet"] == "Saturn" for s in st), True)
-check("fast Jupiter NOT flagged", any(s["planet"] == "Jupiter" for s in st), False)
+print("\n— Sign-change suppressed when crossing forms NO contact (spec: only if a contact forms) —")
+# Mercury 2.26° from Cancer, but Jupiter in Capricorn (opposite) — entering Cancer
+# is 7th from Capricorn = a contact actually... use Aquarius (8th, Asambandhah).
+sc2 = _approaching_sign_change(
+    {"Mercury": planet(87.74, 1.30), "Jupiter": planet(305.0, 0.08)},  # Jupiter 5° Aquarius
+    {"S": "Mercury", "P": "Jupiter"})
+print("  sign_change_approaching:", sc2)
+check("no flag when crossing forms no aspect", len(sc2), 0)
 
 print()
 if fails:

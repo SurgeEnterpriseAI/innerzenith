@@ -115,7 +115,7 @@ def prashna_chart(tc, question_type: str = "general") -> dict:
     # Sign-change is consulted ONLY after a Durapha / Asambandhah (spec 8.6).
     _no_contact = layer4.get("yoga") == "Durapha" or layer4.get("aspect", {}).get("name") == "Asambandhah"
     sign_change_approaching = _approaching_sign_change(planets, sp) if _no_contact else []
-    station_approaching = _station_approaching(tc, planets, sp, moon)
+    station_approaching = _station_approaching(tc, planets)
 
     return {
         "engine": "prashna-7layer-v3",
@@ -602,51 +602,45 @@ def _approaching_sign_change(planets, sp):
     return out
 
 
-def _station_approaching(tc, planets, sp, moon):
-    """Spec 8.5 Critical Gap 1 — Station Approaching Flag. If a planet whose role
-    is the significator (S), promittor (P), or the current (Prashna) dasha lord has
-    |daily speed| below 0.05°/day AND will station (speed crosses zero) within 7
-    days, surface it as the PRIMARY timing signal — a planet at a standstill is
-    momentum about to reverse or release. Saturn stationing retrograde in the Lagna
-    was the dominant signal the engine kept missing in four readings.
+def _station_approaching(tc, planets):
+    """Spec 8.5 Critical Gap 1 — Station Approaching Flag (revised per Pankhuri,
+    2026-06-17). Flag ANY of the four slow movers — Saturn, Jupiter, Rahu, Ketu —
+    whose |daily speed| is below 0.05°/day AND that will station (speed crosses
+    zero) within 7 days, REGARDLESS of chart role. A slow planet at a standstill
+    is a primary timing signal; the earlier role/dasha-lord restriction made the
+    flag miss Saturn stationing in the Lagna, so it is removed.
 
-    Days-to-station = the linear extrapolation of speed to zero, using the planet's
+    Days-to-station = linear extrapolation of speed to zero via the planet's
     acceleration (central difference of speed at ±1 day). A planet just PAST its
-    station (speed moving away from zero) extrapolates to a negative time and is
-    correctly excluded — only the approach is flagged."""
+    station (speed moving away from zero) extrapolates negative and is excluded —
+    only the approach is flagged.
+
+    The chart positions use the MEAN node, which by definition has constant motion
+    and never stations; so for Rahu/Ketu the station test uses the TRUE node — the
+    only node that physically slows and turns. Rahu and Ketu share one axis, so
+    they station together."""
     swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
     flag = swe.FLG_SIDEREAL | swe.FLG_SPEED
-    # In a Prashna chart the maha-dasha lord is the Moon's nakshatra lord (the
-    # dasha clock starts at the question moment, so the first lord rules now).
-    dasha_lord = nakshatra_of(moon)[2]
 
-    roles = {}
-    for role, nm in (("significator", sp.get("S")), ("promittor", sp.get("P")),
-                     ("current dasha lord", dasha_lord)):
-        # Nodes never station (constant mean motion) and Sun/Moon never go
-        # retrograde, so only the five star-planets can qualify — SWE_PLANETS keys.
-        if nm in SWE_PLANETS:
-            roles.setdefault(nm, []).append(role)
+    def speed_at(jd, code):
+        return swe.calc_ut(jd, code, flag)[0][3]
 
     out = []
-    for nm, role_list in roles.items():
-        spd = planets[nm]["speed"]
+    for name, code in (("Saturn", swe.SATURN), ("Jupiter", swe.JUPITER),
+                       ("Rahu", swe.TRUE_NODE), ("Ketu", swe.TRUE_NODE)):
+        spd = speed_at(tc.jd_ut, code)
         if abs(spd) >= 0.05:
             continue
-        code = SWE_PLANETS[nm]
-        s_prev = swe.calc_ut(tc.jd_ut - 1, code, flag)[0][3]
-        s_next = swe.calc_ut(tc.jd_ut + 1, code, flag)[0][3]
-        accel = (s_next - s_prev) / 2.0  # °/day per day
-        if abs(accel) < 1e-6:
+        accel = (speed_at(tc.jd_ut + 1, code) - speed_at(tc.jd_ut - 1, code)) / 2.0
+        if abs(accel) < 1e-7:
             continue
         days = -spd / accel  # speed(t) = spd + accel·t = 0
         if days < 0 or days > 7:
             continue
-        station_type = "retrograde" if spd > 0 else "direct"  # the station it is heading into
         out.append({
-            "role": " & ".join(role_list),
-            "planet_motion_now": "direct" if spd > 0 else "retrograde",
-            "stationing": station_type,
+            "planet": name,
+            "current_motion": "direct" if spd > 0 else "retrograde",
+            "stationing": "retrograde" if spd > 0 else "direct",  # the station it heads into
             "days_to_station": round(days, 1),
         })
     return out

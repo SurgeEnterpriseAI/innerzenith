@@ -28,15 +28,19 @@ function parseDateTime(text: string): { iso: string | null; consumed: string[] }
   const results = chrono.parse(text, undefined, { forwardDate: false });
   if (!results.length) return { iso: null, consumed: [] };
 
+  // A date is complete enough with day + month; the year, when unstated, comes
+  // from the reference date (chrono fills it in). Requiring an EXPLICIT year
+  // wrongly rejected the most common phrasing — "June 19", "11:30 AM June 19" —
+  // and looped the user forever on the date question even after they answered.
   const dateRes = results.find(
-    (r) => r.start.isCertain("day") && r.start.isCertain("month") && r.start.isCertain("year")
+    (r) => r.start.isCertain("day") && r.start.isCertain("month")
   );
   const timeRes = results.find((r) => r.start.isCertain("hour"));
 
   // both date + time in a single fragment
   for (const r of results) {
     if (r.start.isCertain("day") && r.start.isCertain("month") &&
-        r.start.isCertain("year") && r.start.isCertain("hour")) {
+        r.start.isCertain("hour")) {
       const dt = r.start.date();
       return {
         iso: `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`,

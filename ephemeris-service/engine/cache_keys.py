@@ -86,6 +86,8 @@ def _interaction_map(bi: dict | None, tg: dict | None) -> list:
             out.append(f"three-harmony ({kind} {item.get('element','')}): {brs}")
         else:
             out.append(f"three-harmony: {item}")
+    for item in (bi.get("dual_nature_resolution") or []):
+        out.append(f"dual-nature {item.get('pair')}: {item.get('verdict')}")
     if tg:
         gods = [f"{k.replace('_stem','')}={v}" for k, v in tg.items()]
         if gods:

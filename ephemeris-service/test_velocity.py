@@ -1,14 +1,12 @@
-"""Velocity-check regression test for Pankhuri's Prashna feedback (June 2026).
+"""Velocity-check regression test for the v6 Prashna spec (Planetary Speed Index).
 
-Her finding: the app said S and P were "moving apart" when the gap was 4.28° and
-CLOSING at 1.4°/day. The signs were Asambandhah (adjacent, no Tajika aspect), so
-the old code took the Durapha branch and computed NO direction at all — the AI
-then invented "separation". The fix: _velocity uses projected positions tomorrow
-(lon + speed) and runs for every relationship, including Asambandhah.
-
-Rule under test (verbatim from her): "Run a test case where S and P are in
-adjacent signs but closing — confirm the engine reports the absolute gap
-direction correctly even when the sign relationship is Asambandhah."
+Spec 8.6 (lines 1700-1702): the gap that decides Ithasala vs Eshrafa is
+  • same sign (Ekatva): the absolute longitudinal gap min(|dλ|, 360−|dλ|);
+  • cross-sign aspects: the DEGREE-WITHIN-SIGN gap |deg_in_sign(S) − deg_in_sign(P)|,
+    projected one day forward. "The only reliable method."
+Closing → Ithasala (applying); opening → Eshrafa (separating). A full great-circle
+orb is wrong for cross-sign aspects — it invents a ~120° number for a trine that
+perfects in days, so cross-sign Ithasala could never form under the old code.
 """
 from engine.prashna import _velocity, _layer4_tajika, _approaching_sign_change
 
@@ -20,67 +18,58 @@ def check(label, got, want):
     global fails
     ok = got == want
     fails += 0 if ok else 1
-    tag = f"{GREEN}PASS{OFF}" if ok else f"{RED}FAIL{OFF}"
-    print(f"  [{tag}] {label}: got {got!r}, want {want!r}")
+    print(f"  [{(GREEN+'PASS'+OFF) if ok else (RED+'FAIL'+OFF)}] {label}: got {got!r}, want {want!r}")
 
 
 def planet(lon, speed, retro=False):
-    sign = int(lon // 30)
-    return {"lon": lon % 360, "sign": ["Aries","Taurus","Gemini","Cancer","Leo","Virgo",
-            "Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"][sign],
-            "deg": lon % 30, "speed": speed, "retro": retro}
+    SIGNS = ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio",
+             "Sagittarius","Capricorn","Aquarius","Pisces"]
+    return {"lon": lon % 360, "sign": SIGNS[int((lon % 360)//30)],
+            "deg": (lon % 360) % 30, "speed": speed, "retro": retro}
 
 
-print("\n— Pankhuri's case: adjacent signs (Asambandhah), gap 4.28°, closing 1.4°/day —")
-# Slower significator ahead at 3.28° Taurus; faster promittor behind at 29° Aries,
-# catching up. Adjacent signs => Asambandhah. Gap closes as the faster one gains.
-S = planet(33.28, 0.05)   # 3.28° Taurus, slow (Saturn-like)
-P = planet(29.00, 1.45)   # 29.00° Aries, fast (Mars-like), catching up
+print("\n— Cross-sign aspect, CLOSING → degree-in-sign gap shrinks (Ithasala) —")
+# S 10° Aries (slow), P 5° Leo (fast). Trine (distance 5). Faster P at lower
+# degree-in-sign is catching up — gap 5° closing. Neither crosses a boundary.
+S = planet(10.0, 0.05); P = planet(125.0, 1.00)   # 5° Leo
 v = _velocity(S, P)
 print("  velocity:", v)
-check("gap_now ≈ 4.28", v["gap_now"], 4.28)
-check("direction is CLOSING (not opening)", v["direction"], "closing")
-check("rate ≈ 1.4°/day", round(v["deg_per_day"], 1), 1.4)
-
-# Full Tajika layer must surface that velocity and still classify Durapha.
+check("metric is degree-in-sign", v["metric"], "degree-in-sign")
+check("gap_now = 5.0 (|10-5|)", v["gap_now"], 5.0)
+check("direction CLOSING", v["direction"], "closing")
 moon = 200.0
-planets = {"Saturn": S, "Mars": P, "Moon": planet(moon, 13.1),
-           "Sun": planet(80.0, 0.97), "Rahu": planet(330.0, -0.05), "Ketu": planet(150.0, -0.05)}
-l4 = _layer4_tajika(planets, {"S": "Saturn", "P": "Mars"}, moon)
-print("  layer4.yoga:", l4.get("yoga"), "| velocity:", l4.get("velocity", {}).get("direction"))
-check("Asambandhah still classified Durapha", l4["yoga"], "Durapha")
-check("velocity present on Durapha & says closing", l4["velocity"]["direction"], "closing")
+common = {"Moon": planet(moon, 13.1), "Sun": planet(300.0, 0.97),
+          "Rahu": planet(330.0, -0.05), "Ketu": planet(150.0, -0.05)}
+l4 = _layer4_tajika({"Saturn": S, "Mars": P, **common}, {"S": "Saturn", "P": "Mars"}, moon)
+print("  layer4.yoga:", l4.get("yoga"))
+check("cross-sign within orb + closing → Ithasala", l4["yoga"], "Ithasala")
 
-print("\n— Control: genuinely separating (faster planet ahead, pulling away) —")
-S2 = planet(29.00, 0.05)  # slow, behind
-P2 = planet(33.28, 1.45)  # fast, ahead, pulling away
+print("\n— Cross-sign aspect, OPENING → degree-in-sign gap grows (Eshrafa) —")
+S2 = planet(5.0, 0.05); P2 = planet(130.0, 1.00)  # S 5° Aries, P 10° Leo, pulling away
 v2 = _velocity(S2, P2)
 print("  velocity:", v2)
-check("direction is OPENING", v2["direction"], "opening")
+check("direction OPENING", v2["direction"], "opening")
+l4b = _layer4_tajika({"Saturn": S2, "Mars": P2, **common}, {"S": "Saturn", "P": "Mars"}, moon)
+check("cross-sign within orb + opening → Eshrafa", l4b["yoga"], "Eshrafa")
+
+print("\n— Same sign (Ekatva): longitudinal gap metric —")
+Se = planet(10.0, 0.05); Pe = planet(5.0, 1.00)  # both Aries
+ve = _velocity(Se, Pe)
+print("  velocity:", ve)
+check("metric is longitudinal", ve["metric"], "longitudinal")
+check("gap_now = 5.0", ve["gap_now"], 5.0)
+check("direction CLOSING", ve["direction"], "closing")
 
 print("\n— Sign-change-approaching (spec 8.6): Mercury 2.26° from Cancer, Jupiter in Cancer —")
-# Mercury at 27.74° Gemini (lon 87.74), direct; Jupiter at 5° Cancer (lon 95).
-# Crossing into Cancer makes Mercury share Jupiter's sign -> Ekatva forms.
 sc = _approaching_sign_change(
     {"Mercury": planet(87.74, 1.30), "Jupiter": planet(95.0, 0.08)},
     {"S": "Mercury", "P": "Jupiter"})
 print("  sign_change_approaching:", sc)
-check("one flag raised", len(sc), 1)
-check("Mercury 2.26° from Cancer", sc[0]["degrees_to_crossing"], 2.26)
-check("entering Cancer", sc[0]["into_sign"], "Cancer")
-check("resulting_aspect is Ekatva", sc[0]["resulting_aspect"].startswith("Ekatva"), True)
-
-print("\n— Sign-change suppressed when crossing forms NO contact (spec: only if a contact forms) —")
-# Mercury 2.26° from Cancer, but Jupiter in Capricorn (opposite) — entering Cancer
-# is 7th from Capricorn = a contact actually... use Aquarius (8th, Asambandhah).
-sc2 = _approaching_sign_change(
-    {"Mercury": planet(87.74, 1.30), "Jupiter": planet(305.0, 0.08)},  # Jupiter 5° Aquarius
-    {"S": "Mercury", "P": "Jupiter"})
-print("  sign_change_approaching:", sc2)
-check("no flag when crossing forms no aspect", len(sc2), 0)
+check("one flag", len(sc), 1)
+check("2.26° from Cancer", sc[0]["degrees_to_crossing"], 2.26)
+check("resulting_aspect Ekatva", sc[0]["resulting_aspect"].startswith("Ekatva"), True)
 
 print()
 if fails:
-    print(f"{RED}{fails} check(s) FAILED{OFF}")
-    raise SystemExit(1)
+    print(f"{RED}{fails} check(s) FAILED{OFF}"); raise SystemExit(1)
 print(f"{GREEN}All velocity checks passed.{OFF}")

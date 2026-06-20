@@ -531,19 +531,34 @@ _ASPECT_MATRIX = {
 
 
 def _velocity(ps, pp):
-    """Spec Planetary Speed Index — the absolute gap direction between two bodies,
-    decided by their PROJECTED positions one day on (lon + speed), never by a
-    within-sign degree comparison. Valid for ANY relationship, including
-    Asambandhah/Durapha where no Tajika aspect exists. This is the only authority
-    on 'converging vs separating'; the yoga name must never be used to infer it.
+    """Spec 8.6 Planetary Speed Index (Mandatory Pre-Check) — the gap DIRECTION
+    between S and P, decided by projecting both one day forward (lon + speed). The
+    metric depends on the relationship, per spec:
 
-    Pankhuri's case: S and P 4.28° apart with the gap closing 1.4°/day must read
-    as CLOSING even though the signs are Asambandhah and the yoga is Durapha.
+      • Same sign (Ekatva): the absolute longitudinal gap min(|dλ|, 360−|dλ|).
+      • Cross-sign aspects: the DEGREE-WITHIN-SIGN gap |deg_in_sign(S) −
+        deg_in_sign(P)|. Exact aspect perfects when both reach the same degree of
+        their signs. The spec calls this "the only reliable method": a full
+        great-circle orb or a static 'S's degree < P's degree' comparison gives
+        the wrong answer when the slower planet sits at a lower degree than a
+        faster planet that has already passed it and is pulling away.
+
+    Closing gap → applying (Ithasala); opening → separating (Eshrafa). When the
+    closing motion is driven by a retrograde body the caller marks Retrograde
+    Ithasala. Works for ANY relationship incl. Asambandhah/Durapha — the yoga name
+    must never be used to infer direction.
     """
-    gap_now = _orb(ps["lon"], pp["lon"])
     s_next = norm360(ps["lon"] + ps["speed"])
     p_next = norm360(pp["lon"] + pp["speed"])
-    gap_next = _orb(s_next, p_next)
+    same_sign = sign_index(ps["lon"]) == sign_index(pp["lon"])
+    if same_sign:
+        gap_now = _orb(ps["lon"], pp["lon"])
+        gap_next = _orb(s_next, p_next)
+        metric = "longitudinal"
+    else:
+        gap_now = abs(deg_in_sign(ps["lon"]) - deg_in_sign(pp["lon"]))
+        gap_next = abs(deg_in_sign(s_next) - deg_in_sign(p_next))
+        metric = "degree-in-sign"
     rate = gap_now - gap_next  # +ve = closing, -ve = opening
     if rate > 0.03:
         direction = "closing"
@@ -555,9 +570,11 @@ def _velocity(ps, pp):
     return {
         "gap_now": round(gap_now, 2),
         "gap_tomorrow": round(gap_next, 2),
+        "metric": metric,
         "direction": direction,
         "deg_per_day": round(abs(rate), 3),
-        "days_to_exact": days,  # only meaningful while closing
+        "days_to_exact": days,  # degrees-to-perfection ÷ rate; only while closing
+        "retrograde_driven": direction == "closing" and (ps.get("retro") or pp.get("retro")),
     }
 
 
@@ -763,8 +780,19 @@ def _layer6_timing(layer4, sp, planets, moon, lagna_modality, layer3):
     S, P = sp["S"], sp["P"]
     if yoga == "Ithasala":
         anchor = "S_to_P"
-        delta = _orb(planets[S]["lon"], planets[P]["lon"]) if S in planets and P in planets else 0
-    else:  # Nakta
+        # Spec 8.7: delta is consistent with the Layer-4 velocity metric — the
+        # longitudinal gap for a same-sign (Ekatva) Ithasala, but the
+        # degree-within-sign gap for a cross-sign aspect (a full great-circle orb
+        # would invent a phantom ~120° number for a trine that perfects in days).
+        if S in planets and P in planets:
+            ps, pp = planets[S], planets[P]
+            if sign_index(ps["lon"]) == sign_index(pp["lon"]):
+                delta = _orb(ps["lon"], pp["lon"])
+            else:
+                delta = abs(deg_in_sign(ps["lon"]) - deg_in_sign(pp["lon"]))
+        else:
+            delta = 0
+    else:  # Nakta — Moon is the bridge; delta is Moon-to-P, never S-to-P
         anchor = "Moon_to_P"
         delta = _orb(moon, planets[P]["lon"]) if P in planets else 0
 

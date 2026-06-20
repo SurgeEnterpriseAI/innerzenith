@@ -16,7 +16,8 @@ from .constants import (
     SIGNS, SIGN_LORDS, MODALITY, EVEN_SIGNS, NAKSHATRAS, NAKSHATRA_LORD,
     NAKSHATRA_SPAN, VIMSHOTTARI_YEARS, VIMSHOTTARI_ORDER, VIMSHOTTARI_TOTAL,
     EXALTATION, DEBILITATION, OWN_SIGNS, MOOLATRIKONA, NATURAL_BENEFICS,
-    NATURAL_MALEFICS, SPECIAL_ASPECTS, DEFAULT_ASPECT, NAISARGIKA_BALA,
+    NATURAL_MALEFICS, NATURAL_FRIENDS, NATURAL_ENEMIES,
+    SPECIAL_ASPECTS, DEFAULT_ASPECT, NAISARGIKA_BALA,
     RASI_GUNAKAR, GRAHA_GUNAKAR, D60_DEITIES, WATER_FIRE_JUNCTIONS,
     NAKSHATRA_GANDANTA_PAIRS,
 )
@@ -219,8 +220,28 @@ def functional_nature(asc_sign_idx: int) -> dict:
 
 
 # ─── 2.5 dignities ─────────────────────────────────────────────
+# Natal combustion orbs from the Sun (spec 2.5); Mercury→12° / Venus→8° if retrograde.
+_COMBUST_ORB = {"Moon": 12, "Mars": 17, "Mercury": 14, "Jupiter": 11, "Venus": 10, "Saturn": 15}
+# Baladi (degree-state) avasthas — 6° each; reversed for even signs.
+_BALADI = ["Bala (infant — weak)", "Kumara (child — growing)", "Yuva (youth — peak strength)",
+           "Vriddha (old — declining)", "Mrita (dead — nil)"]
+
+
+def _influencers(name: str, sign: str, planets: dict, gd: dict) -> set:
+    """Planets other than `name` that conjoin `sign` or cast graha drishti on it."""
+    out = set()
+    for nm2, p2 in planets.items():
+        if nm2 == name:
+            continue
+        if p2["sign"] == sign or sign in gd.get(nm2, {}).get("aspected_signs", []):
+            out.add(nm2)
+    return out
+
+
 def dignities(planets: dict, asc_sign_idx: int, navamsha: dict) -> dict:
     out = {}
+    gd = graha_drishti(planets, asc_sign_idx)
+    sun_lon = planets.get("Sun", {}).get("total_degrees", 0.0)
     for name, p in planets.items():
         sign = p["sign"]
         deg = p["degrees_in_sign"]
@@ -249,11 +270,45 @@ def dignities(planets: dict, asc_sign_idx: int, navamsha: dict) -> dict:
         # vargottama: same sign in D1 and D9
         d9_sign = navamsha.get(name, {}).get("sign")
         vargottama = (d9_sign == sign)
+        # natal combustion (spec 2.5) — angular orb from the Sun, retro-adjusted
+        combust = False
+        if name in _COMBUST_ORB:
+            orb = _COMBUST_ORB[name]
+            if name == "Mercury" and p.get("retrograde"):
+                orb = 12
+            elif name == "Venus" and p.get("retrograde"):
+                orb = 8
+            d_sun = abs(((p["total_degrees"] - sun_lon + 180) % 360) - 180)
+            combust = d_sun <= orb
+        # Baladi avastha — 5 degree-states (6° each), reversed for even signs
+        bidx = min(4, int(deg // 6))
+        if sign in EVEN_SIGNS:
+            bidx = 4 - bidx
+        # dignity boundary flag — within 0.5° of a Moolatrikona edge (spec 2.5)
+        boundary = False
+        if name in MOOLATRIKONA and sign == MOOLATRIKONA[name][0]:
+            lo, hi = MOOLATRIKONA[name][1], MOOLATRIKONA[name][2]
+            boundary = abs(deg - lo) <= 0.5 or abs(deg - hi) <= 0.5
+        # Lajjitadi: Kshudita (starved) & Mudita (delighted) — spec 2.5
+        infl = _influencers(name, sign, planets, gd)
+        sign_lord = SIGN_LORDS[sign]
+        kshudita = (sign_lord in NATURAL_ENEMIES.get(name, set())
+                    and bool(infl & NATURAL_ENEMIES.get(name, set()))
+                    and not bool(infl & NATURAL_BENEFICS))
+        mudita = (sign_lord in NATURAL_FRIENDS.get(name, set())
+                  and bool(infl & NATURAL_BENEFICS))
         out[name] = {
             "essential_dignity": essential,
             "accidental_dignity": acc,
             "kendradi_bala": kendradi,
             "vargottama": vargottama,
+            "combust": combust,
+            "baladi_avastha": _BALADI[bidx],
+            "dignity_boundary_flag": boundary,
+            "kshudita": kshudita,
+            "mudita": mudita,
+            "sign_lord": sign_lord,
+            "exaltation_dispositor": SIGN_LORDS[EXALTATION[name][0]] if name in EXALTATION else None,
         }
     return out
 
@@ -388,12 +443,16 @@ def arudha_padas(planets: dict, asc_sign_idx: int) -> dict:
 
 
 # ─── 2.8 Chara Karakas (Jaimini) ───────────────────────────────
-def chara_karakas(planets: dict) -> dict:
+def chara_karakas(planets: dict, navamsha: dict = None) -> dict:
     """8-planet Parashari Chara Karakas (BPHS Ch.32).
 
     Ketu is strictly excluded. Rahu uses its TRUE NODE longitude, inverted
     (30 - deg_in_sign) as a classical convention. Sort 8 sort-values
     descending → AK, AmK, BK, MK, PiK, PK, GK, DK.
+
+    Karakamsha (spec 2.8) — the sign occupied by the Atmakaraka in the D9
+    (Navamsha). It is the anchor of the Life Purpose reading, so it is computed
+    here and surfaced both on the AK entry and at the top level.
     """
     ranking = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu"]
     vals = []
@@ -421,6 +480,12 @@ def chara_karakas(planets: dict) -> dict:
     out["_meta"] = {"system": "Parashari 8-planet", "ketu_excluded": True,
                     "rahu_uses_true_node": True,
                     "tie_skipped_degrees": skipped or None}
+    # Karakamsha — Atmakaraka's Navamsha sign (spec 2.8, Life Purpose anchor)
+    if navamsha:
+        ak_planet = out["AK"]["planet"]
+        ks = navamsha.get(ak_planet, {}).get("sign")
+        out["AK"]["karakamsha_sign"] = ks
+        out["karakamsha_sign"] = ks
     return out
 
 
@@ -513,6 +578,25 @@ def detect_yogas(planets: dict, asc_sign_idx: int, fnature: dict, navamsha: dict
             if not any(y["name"] == "Parivartana Yoga" and tuple(sorted(y["components"])) == pair for y in yogas):
                 yogas.append({"name": "Parivartana Yoga", "components": list(pair),
                               "strength": "strong", "life_area": "exchange", "mitigated": False})
+
+    # Vipreet Raja Yoga (spec 2.9) — a 6th/8th/12th lord placed in a 6/8/12 house
+    # (rise through adversity). Harsha=6th lord, Sarala=8th, Vimala=12th.
+    _dusthana = {6, 8, 12}
+    for h, vname in ((6, "Harsha"), (8, "Sarala"), (12, "Vimala")):
+        lord = house_lord[h]
+        if house_of.get(lord) in _dusthana:
+            yogas.append({"name": f"Vipreet Raja Yoga ({vname})", "components": [lord],
+                          "strength": "medium", "life_area": "rise through adversity",
+                          "mitigated": False})
+
+    # Dhana Yogas (spec 2.9) — two distinct wealth-house lords (2/5/9/11) conjunct.
+    _dhana_lords = sorted({house_lord[h] for h in (2, 5, 9, 11)})
+    for i in range(len(_dhana_lords)):
+        for j in range(i + 1, len(_dhana_lords)):
+            a, b = _dhana_lords[i], _dhana_lords[j]
+            if a in house_of and b in house_of and house_of[a] == house_of[b]:
+                yogas.append({"name": "Dhana Yoga", "components": [a, b],
+                              "strength": "medium", "life_area": "wealth", "mitigated": False})
     return yogas
 
 
@@ -810,6 +894,23 @@ def _narayana_direction(sign_idx: int, planets: dict) -> bool:
     return True  # Dual lord in a Dual sign → default forward
 
 
+def _narayana_count_dir(sidx: int, planets: dict) -> bool:
+    """Period-length COUNTING direction (spec 2.13, lines 601-607) — distinct from
+    the Mahadasha sequence direction. Movable → forward, Fixed → backward, Dual →
+    forward if its own lord sits in an ODD sign, backward if EVEN. NB: this is the
+    lord's sign PARITY (odd/even), NOT its modality — the spec is explicit that a
+    9th-sign-modality check is unreachable dead code for Dual signs."""
+    m = MODALITY[SIGNS[sidx]]
+    if m == "movable":
+        return True
+    if m == "fixed":
+        return False
+    lord = SIGN_LORDS[SIGNS[sidx]]
+    if lord in planets:
+        return SIGNS[sign_index(planets[lord]["total_degrees"])] in ODD_SIGNS
+    return True
+
+
 def _narayana_from(dasha_lagna_idx: int, planets: dict, birth_dt: datetime,
                    span_years: int) -> list:
     # Mahadasha sequence direction — spec 2.13 modality rule (see helper).
@@ -822,8 +923,14 @@ def _narayana_from(dasha_lagna_idx: int, planets: dict, birth_dt: datetime,
         sgn = SIGNS[sidx]
         lord = SIGN_LORDS[sgn]
         lord_sign_idx = sign_index(planets[lord]["total_degrees"]) if lord in planets else sidx
-        years = house_from(sidx, lord_sign_idx) - 1
-        years = 12 if years <= 0 else max(1, years)
+        # Period length — spec 2.13 (601-607): INCLUSIVE count from the sign to its
+        # dispositor, in the sign's own modality direction (see _narayana_count_dir).
+        # Count = years directly; lord in own sign → count 1 → full 12 years. NEVER
+        # the house-distance from the Dasha Lagna.
+        cfwd = _narayana_count_dir(sidx, planets)
+        dist = (lord_sign_idx - sidx) % 12 if cfwd else (sidx - lord_sign_idx) % 12
+        count = dist + 1
+        years = 12 if count == 1 else count
         timeline.append({
             "sign": sgn, "sign_lord": lord,
             "direction": "forward" if forward else "reverse",
@@ -944,6 +1051,18 @@ def varshaphala(tc: TimeContext, natal_planets: dict, asc_sign_idx: int,
     # Varsheshwara — simplified: lord of Varsha Lagna (full Panchavargiya is
     # flagged in VALIDATION for reference cross-check)
     varsheshwara = SIGN_LORDS[sign_of(varsha_lagna)]
+    # Mudda (Varsha Vimshottari) Dasha — the 120-year Vimshottari compressed into
+    # this solar year, sequence from the natal Moon's nakshatra lord (spec 2.15).
+    sr_y, sr_mo, sr_d, sr_h = swe.revjul(jd_guess)
+    m_cursor = datetime(int(sr_y), int(sr_mo), int(sr_d)) + timedelta(days=sr_h / 24.0)
+    m_naksh = int(norm360(natal_planets["Moon"]["total_degrees"]) // NAKSHATRA_SPAN) % 27
+    m_pos = VIMSHOTTARI_ORDER.index(NAKSHATRA_LORD[m_naksh])
+    mudda = []
+    for i in range(9):
+        lord = VIMSHOTTARI_ORDER[(m_pos + i) % 9]
+        nxt = m_cursor + timedelta(days=VIMSHOTTARI_YEARS[lord] / VIMSHOTTARI_TOTAL * 365.25)
+        mudda.append({"lord": lord, "start": m_cursor.date().isoformat(), "end": nxt.date().isoformat()})
+        m_cursor = nxt
     return {
         "year": year,
         "varsha_lagna": {"sign": sign_of(varsha_lagna),
@@ -951,6 +1070,7 @@ def varshaphala(tc: TimeContext, natal_planets: dict, asc_sign_idx: int,
         "muntha": {"sign": SIGNS[muntha_idx],
                    "house": house_from(asc_sign_idx, muntha_idx)},
         "varsheshwara": varsheshwara,
+        "mudda_dasha": mudda,
         "note": "Varsheshwara via Varsha-Lagna lord; full Panchavargiya Bala scoring flagged for QA.",
     }
 

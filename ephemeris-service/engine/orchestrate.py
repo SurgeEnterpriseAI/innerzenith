@@ -66,7 +66,7 @@ def compute_profile(
         vedic_block["special_lagnas"] = v.special_lagnas(tc, asc_lon)
         vedic_block["shadbala"] = v.shadbala(planets, asc_idx, tc)
         vedic_block["arudha_padas"] = v.arudha_padas(planets, asc_idx)
-        vedic_block["chara_karakas"] = v.chara_karakas(planets)
+        vedic_block["chara_karakas"] = v.chara_karakas(planets, navamsha)
         vedic_block["ashtakavarga"] = v.ashtakavarga(planets, asc_idx)
         yogas = v.detect_yogas(planets, asc_idx, vedic_block["functional_nature"], navamsha)
         vedic_block["yogas"] = yogas

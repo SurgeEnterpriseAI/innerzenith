@@ -25,7 +25,8 @@ from .constants import (
     SIGNS, SIGN_LORDS, MODALITY, NAKSHATRAS, NAKSHATRA_LORD, NAKSHATRA_SPAN,
     DEETHI, PROMITTOR_HOUSE, STHIRA_KARAKA, MANDI_GHATI_DAY, HORA_DAY_LORD,
     HORA_SEQUENCE, DREKKANA_CLASS, DREKKANA_MEANING, NATURAL_FRIENDS,
-    NATURAL_ENEMIES, NATURAL_BENEFICS,
+    NATURAL_ENEMIES, NATURAL_BENEFICS, NATURAL_MALEFICS,
+    SPECIAL_ASPECTS, DEFAULT_ASPECT,
 )
 from .vedic import (
     norm360, sign_of, sign_index, deg_in_sign, to_dms, nakshatra_of,
@@ -70,7 +71,7 @@ def prashna_chart(tc, question_type: str = "general") -> dict:
     sp = _significator_promittor(udaya, asc_sign_idx, planets, question_type)
 
     # ── Layer 1: Kerala Anchors ──
-    layer1 = _layer1_kerala(tc, udaya, asc_sign_idx, planets, moon, sp)
+    layer1 = _layer1_kerala(tc, udaya, asc_sign_idx, planets, moon, sp, question_type)
 
     # ── Layer 2: Pancha Mahasutra ──
     layer2 = _layer2_pancha(udaya, layer1["arudha_lagna"], asc_sign_idx, planets)
@@ -116,6 +117,8 @@ def prashna_chart(tc, question_type: str = "general") -> dict:
     _no_contact = layer4.get("yoga") == "Durapha" or layer4.get("aspect", {}).get("name") == "Asambandhah"
     sign_change_approaching = _approaching_sign_change(planets, sp) if _no_contact else []
     station_approaching = _station_approaching(tc, planets)
+    panchanga = _panchanga(planets)
+    prashna_chart_yogas = _prashna_yogas(planets, asc_sign_idx)
 
     return {
         "engine": "prashna-7layer-v3",
@@ -140,6 +143,8 @@ def prashna_chart(tc, question_type: str = "general") -> dict:
         "velocity_check": velocity_check,
         "sign_change_approaching": sign_change_approaching,
         "station_approaching": station_approaching,
+        "panchanga": panchanga,
+        "prashna_chart_yogas": prashna_chart_yogas,
     }
 
 
@@ -325,18 +330,42 @@ def _orb(a, b):
 
 
 def _strongest_applying_to(target, planets):
-    best, best_orb = None, 999
+    """Open-reading promittor (spec 8.2) — the planet forming the strongest
+    APPLYING Tajika aspect to the target (Lagna lord): a VALID sign-aspect (not
+    Asambandhah) whose gap is CLOSING (velocity), tightest first. Falls back to
+    the closest valid aspect if none is applying, then to raw nearest orb. The old
+    code took the smallest raw orb regardless of aspect validity or direction."""
+    tp = planets[target]
+    applying, anyvalid = [], []
     for name, p in planets.items():
         if name == target:
             continue
-        o = _orb(p["lon"], planets[target]["lon"])
-        if o < best_orb:
-            best, best_orb = name, o
-    return best
+        dist = house_from(sign_index(p["lon"]), sign_index(tp["lon"]))
+        if _ASPECT_MATRIX[dist][0] == "Asambandhah":
+            continue
+        gap = _velocity(p, tp)
+        anyvalid.append((gap["gap_now"], name))
+        if gap["direction"] == "closing":
+            applying.append((gap["gap_now"], name))
+    pool = applying or anyvalid
+    if pool:
+        return min(pool)[1]
+    # no valid aspect at all → nearest by raw orb (degenerate fallback)
+    return min(((_orb(p["lon"], tp["lon"]), n) for n, p in planets.items() if n != target),
+               default=(0, None))[1]
 
 
 # ─── Layer 1: Kerala Anchors (8.3) ─────────────────────────────
-def _layer1_kerala(tc, udaya, asc_sign_idx, planets, moon, sp):
+_TOPIC_NATURAL_SIGNIFICATOR = {
+    "marriage": "Venus", "love": "Venus", "career": "Sun", "job": "Sun",
+    "money": "Jupiter", "gains": "Jupiter", "wealth": "Jupiter",
+    "legal": "Saturn", "court": "Saturn", "property": "Mars", "health": "Sun",
+    "children": "Jupiter", "travel": "Mercury", "foreign": "Mercury",
+    "lost_object": "Mercury",
+}
+
+
+def _layer1_kerala(tc, udaya, asc_sign_idx, planets, moon, sp, qtype="general"):
     # Arudha Lagna of the Prashna chart
     lagna_lord = SIGN_LORDS[sign_of(udaya)]
     lord_sign_idx = sign_index(planets[lagna_lord]["lon"])
@@ -350,6 +379,9 @@ def _layer1_kerala(tc, udaya, asc_sign_idx, planets, moon, sp):
     # Kaala Hora
     hora = _kaala_hora(tc)
     hora_res = hora["hora_lord"] in {lagna_lord, SIGN_LORDS[SIGNS[arudha_idx]], sp.get("P")}
+    # Secondary Hora resonance (spec 8.3) — the Hora lord's NATURAL signification
+    # matches the topic (Saturn=legal/justice, Venus=love, Jupiter=dharma/wealth…).
+    hora_natural_res = _TOPIC_NATURAL_SIGNIFICATOR.get(qtype) == hora["hora_lord"]
 
     # Gulika
     gulika = _gulika(tc)
@@ -364,6 +396,18 @@ def _layer1_kerala(tc, udaya, asc_sign_idx, planets, moon, sp):
         if _orb(tris_lon, planets[nd]["lon"]) <= 3:
             tris_node = nd
     _tv_dig, _tv_plain = _planet_dignity(tnlord, planets)
+    # Benefic/malefic aspect on the Trisphuta degree (spec 8.3) — does a benefic or
+    # malefic conjoin or cast graha drishti onto the Trisphuta's sign?
+    _tris_sidx = sign_index(tris_lon)
+    _ben = _mal = False
+    for _nm, _pl in planets.items():
+        _fs = sign_index(_pl["lon"])
+        _hits = [nth_sign(_fs, _h) for _h in SPECIAL_ASPECTS.get(_nm, DEFAULT_ASPECT)]
+        if _fs == _tris_sidx or _tris_sidx in _hits:
+            if _nm in NATURAL_BENEFICS:
+                _ben = True
+            elif _nm in NATURAL_MALEFICS:
+                _mal = True
     trisphuta = {
         "sign": sign_of(tris_lon), "degree": round(deg_in_sign(tris_lon), 2),
         "house": house_from(asc_sign_idx, sign_index(tris_lon)),
@@ -373,7 +417,11 @@ def _layer1_kerala(tc, udaya, asc_sign_idx, planets, moon, sp):
         # even if surface aspects (Eshrafa/VOC) say "not via this window".
         "vitality": _tv_plain or "workable", "vitality_dignity": _tv_dig or "neutral",
         "node_within_3deg": tris_node,
+        "aspected_by": ("both" if _ben and _mal else "benefic" if _ben
+                        else "malefic" if _mal else "none"),
     }
+    # Moon dignity in the Prashna chart (spec 8.3) — the force of the desire itself.
+    _moon_dig, _moon_plain = _planet_dignity("Moon", planets)
 
     # Drekkana of Udaya Lagna
     drek_idx = _varga_sign_index(udaya, 3)
@@ -384,7 +432,9 @@ def _layer1_kerala(tc, udaya, asc_sign_idx, planets, moon, sp):
                         "nakshatra": nakshatra_of(udaya)[0], "pada": nakshatra_of(udaya)[1],
                         "modality": MODALITY[sign_of(udaya)]},
         "arudha_lagna": {"sign": SIGNS[arudha_idx], "lord": SIGN_LORDS[SIGNS[arudha_idx]]},
-        "kaala_hora": {"hora_lord": hora["hora_lord"], "hora_resonance": hora_res},
+        "kaala_hora": {"hora_lord": hora["hora_lord"], "hora_resonance": hora_res,
+                       "hora_natural_resonance": hora_natural_res},
+        "moon_dignity": {"dignity": _moon_dig or "neutral", "strength": _moon_plain or "workable"},
         "gulika": gulika,
         "trisphuta": trisphuta,
         "drekkana": {"sign": SIGNS[drek_idx], "classification": drek_class,
@@ -438,6 +488,15 @@ def _gulika(tc):
     return {"lon": glon, "sign": sign_of(glon), "degree": round(deg_in_sign(glon), 2)}
 
 
+# Sign elements + compatibility (fire↔air, earth↔water are friendly).
+_ELEMENT = {s: el for el, ss in (
+    ("fire", ["Aries", "Leo", "Sagittarius"]), ("earth", ["Taurus", "Virgo", "Capricorn"]),
+    ("air", ["Gemini", "Libra", "Aquarius"]), ("water", ["Cancer", "Scorpio", "Pisces"]))
+    for s in ss}
+_ELEM_COMPAT = {"fire": {"fire", "air"}, "air": {"air", "fire"},
+                "earth": {"earth", "water"}, "water": {"water", "earth"}}
+
+
 # ─── Layer 2: Pancha Mahasutra (8.4) ───────────────────────────
 def _layer2_pancha(udaya, arudha, asc_sign_idx, planets):
     u_sign = sign_of(udaya)
@@ -445,10 +504,17 @@ def _layer2_pancha(udaya, arudha, asc_sign_idx, planets):
     u_lord = SIGN_LORDS[u_sign]
     a_lord = arudha["lord"]
 
-    # Samanya — modal/odd-even alignment
+    # Samanya — spec 8.4 3-state truth table on modality AND element compatibility:
+    # both → aligned, one only → partial, neither → misaligned. (The old code used
+    # odd/even parity as an OR proxy, collapsing it to a binary aligned/misaligned.)
     same_modality = MODALITY[u_sign] == MODALITY[a_sign]
-    same_parity = (SIGNS.index(u_sign) % 2) == (SIGNS.index(a_sign) % 2)
-    samanya = "aligned" if (same_modality or same_parity) else "misaligned"
+    elem_compat = _ELEMENT[a_sign] in _ELEM_COMPAT[_ELEMENT[u_sign]]
+    if same_modality and elem_compat:
+        samanya = "aligned — actions match the wish"
+    elif same_modality or elem_compat:
+        samanya = "partial — actions and the wish only partly align"
+    else:
+        samanya = "misaligned — actions work against the wish"
 
     # Adhipati — natural friendship of the two lords
     if a_lord in NATURAL_FRIENDS.get(u_lord, set()):
@@ -469,11 +535,15 @@ def _layer2_pancha(udaya, arudha, asc_sign_idx, planets):
     else:
         amsaka = "neutral subconscious"
 
-    # Nakshatra — Tara Bala (count / 9 remainder)
+    # Nakshatra — Tara Bala (count / 9 remainder). Spec 8.4: an exactly-divisible
+    # count maps to Tara 9 (Ati-Mitra), never 0; emit the Tara name + valence.
     u_nak = int(norm360(udaya) // NAKSHATRA_SPAN)
     a_nak = NAKSHATRAS.index(nakshatra_of(SIGNS.index(a_sign) * 30 + 1)[0])
     count = ((a_nak - u_nak) % 27) + 1
-    tara = count % 9
+    tara = ((count - 1) % 9) + 1  # 1..9, remainder-0 → 9
+    _TARA_NAMES = ["Janma", "Sampat", "Vipat", "Kshema", "Pratyak",
+                   "Sadhaka", "Vadha", "Mitra", "Ati-Mitra"]
+    tara_name = _TARA_NAMES[tara - 1]
     tara_quality = "anxious / unsteady" if tara in (3, 5, 7) else "confident / ready"
 
     # Maha — Arudha vs 10th from Udaya
@@ -482,7 +552,7 @@ def _layer2_pancha(udaya, arudha, asc_sign_idx, planets):
 
     return {
         "samanya": samanya, "adhipati": adhipati, "amsaka": amsaka,
-        "nakshatra_tara": {"tara_number": tara, "quality": tara_quality},
+        "nakshatra_tara": {"tara_number": tara, "tara_name": tara_name, "quality": tara_quality},
         "maha": maha,
     }
 
@@ -698,7 +768,9 @@ def _layer4_tajika(planets, sp, moon):
             applying = vel["direction"] == "closing"
             if applying:
                 yoga = "Ithasala"
-                retro_ith = ps["retro"] or pp["retro"]
+                # Retrograde Ithasala — the CLOSING motion is driven by a retrograde
+                # body (spec 8.6), not merely "either planet is retrograde".
+                retro_ith = vel.get("retrograde_driven", False)
             else:
                 yoga = "Eshrafa"
         else:
@@ -732,14 +804,22 @@ def _nakta_bridge(planets, S, P, moon):
 
 
 def _frustration(planets, S, P):
-    """A faster third planet reaches P's degree before S completes the aspect."""
+    """Kuttha (spec 8.6): a faster third planet completes ITS aspect to P BEFORE S
+    can perfect — intercepting the matter. The condition is an ORDERING one: the
+    interceptor must reach P's degree sooner than S does, not merely sit near P."""
     if S not in planets or P not in planets:
         return {"flag": False}
+    s_days = _velocity(planets[S], planets[P]).get("days_to_exact")
     for name, p in planets.items():
         if name in (S, P) or name in ("Rahu", "Ketu"):
             continue
-        if SPEED_RANK[name] > SPEED_RANK[S] and _orb(p["lon"], planets[P]["lon"]) <= 3:
-            return {"flag": True, "intercepting_planet": name}
+        if SPEED_RANK[name] <= SPEED_RANK[S]:
+            continue
+        v = _velocity(p, planets[P])
+        i_days = v.get("days_to_exact")  # None unless applying (closing)
+        if i_days is not None and v["gap_now"] <= 6 and (s_days is None or i_days < s_days):
+            return {"flag": True, "intercepting_planet": name,
+                    "interceptor_days": i_days, "significator_days": s_days}
     return {"flag": False}
 
 
@@ -762,13 +842,70 @@ def _layer5_moon(planets, moon, asc_sign_idx):
     candidates.sort()
     delta, name, aspect_name, nature = candidates[0]
     nat = "Friendly" if "friendly" in nature else ("Hostile" if "hostile" in nature else "Neutral")
+    # Natural friendship from BOTH perspectives (spec 8.7 — mandatory, esp. Ekatva).
+    def _rel(a, b):
+        if b in NATURAL_FRIENDS.get(a, set()):
+            return "friend"
+        if b in NATURAL_ENEMIES.get(a, set()):
+            return "enemy"
+        return "neutral"
     return {
         "voc": False,
         "next_applying_planet": name,
         "aspect_type": aspect_name,
         "aspect_nature": nat,
         "degrees_to_exact": round(delta, 2),
+        "natural_friendship": {"moon_to_planet": _rel("Moon", name),
+                               "planet_to_moon": _rel(name, "Moon")},
     }
+
+
+_NITYA_YOGAS = ["Vishkambha", "Priti", "Ayushman", "Saubhagya", "Shobhana", "Atiganda",
+                "Sukarman", "Dhriti", "Shula", "Ganda", "Vriddhi", "Dhruva", "Vyaghata",
+                "Harshana", "Vajra", "Siddhi", "Vyatipata", "Variyana", "Parigha", "Shiva",
+                "Siddha", "Sadhya", "Shubha", "Shukla", "Brahma", "Indra", "Vaidhriti"]
+
+
+def _panchanga(planets):
+    """Panchanga of the question moment (spec 8.12): Tithi (Moon−Sun ÷ 12°),
+    Paksha (waxing/waning), and Nitya Yoga ((Sun+Moon) ÷ 13.333°)."""
+    sun, moon = planets["Sun"]["lon"], planets["Moon"]["lon"]
+    tithi = int(((moon - sun) % 360) // 12) + 1  # 1..30
+    yoga_idx = int(((sun + moon) % 360) // (360 / 27))
+    return {
+        "tithi": tithi,
+        "paksha": "Shukla (waxing)" if tithi <= 15 else "Krishna (waning)",
+        "nitya_yoga": _NITYA_YOGAS[yoga_idx % 27],
+    }
+
+
+def _prashna_yogas(planets, asc_sign_idx):
+    """Whole-chart yoga scan of the Prashna chart (spec 8.3) — a strong chart
+    underwrites a borderline yes. Scans Gaja Kesari, any planet own/exalted in a
+    kendra/trikona, and Parivartana (mutual sign exchange)."""
+    from .constants import EXALTATION, OWN_SIGNS
+    yogas = []
+    if "Moon" in planets and "Jupiter" in planets:
+        mj = house_from(sign_index(planets["Moon"]["lon"]), sign_index(planets["Jupiter"]["lon"]))
+        if mj in (1, 4, 7, 10):
+            yogas.append("Gaja Kesari — wisdom and support behind the matter")
+    classical = ("Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn")
+    for nm in classical:
+        if nm not in planets:
+            continue
+        if house_from(asc_sign_idx, sign_index(planets[nm]["lon"])) in (1, 4, 5, 7, 9, 10):
+            sgn = planets[nm]["sign"]
+            if sgn in OWN_SIGNS.get(nm, []) or (nm in EXALTATION and sgn == EXALTATION[nm][0]):
+                yogas.append(f"{nm} strong and well-placed (dignified in an angle or trine)")
+    for a in classical:
+        if a not in planets:
+            continue
+        la = SIGN_LORDS[planets[a]["sign"]]
+        if la != a and la in planets and SIGN_LORDS[planets[la]["sign"]] == a:
+            tag = "Parivartana — " + " & ".join(sorted([a, la])) + " in mutual exchange"
+            if tag not in yogas:
+                yogas.append(tag)
+    return yogas
 
 
 # ─── Layer 6: Event Timing (8.8) ───────────────────────────────

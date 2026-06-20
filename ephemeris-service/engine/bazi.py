@@ -299,8 +299,32 @@ def branch_interactions(pillars: dict) -> dict:
         if len(present) >= 2:
             san_he.append({"branches": sorted(present), "element": el,
                            "full": len(present) == 3})
+
+    # Dual-nature pair resolution (spec 4.7, line 973). Tiger-Pig (Yin-Hai) and
+    # Snake-Monkey (Si-Shen) are BOTH a Liu He combination AND a Liu Po destruction.
+    # The birth-MONTH branch's season element decides which prevails; a neutral
+    # (earth) month leaves both active so the AI weighs both.
+    _SEASON = {"Yin": "wood", "Mao": "wood", "Si": "fire", "Wu": "fire",
+               "Shen": "metal", "You": "metal", "Hai": "water", "Zi": "water"}
+    month_branch = pillars.get("month", {}).get("branch")
+    season = _SEASON.get(month_branch)
+    dual_resolution = []
+    for pair, combo_el, combo_season, destroy_season in (
+            (("Yin", "Hai"), "Wood", "wood", "metal"),
+            (("Si", "Shen"), "Water", "water", "fire")):
+        if pair[0] in bset and pair[1] in bset:
+            if season == combo_season:
+                verdict = f"combination prevails — produces {combo_el}"
+            elif season == destroy_season:
+                verdict = "destruction prevails"
+            else:
+                verdict = "both active (neutral season) — combination and destruction in tension"
+            dual_resolution.append({"pair": f"{pair[0]}-{pair[1]}",
+                                    "month_branch": month_branch, "verdict": verdict})
+
     return {"clashes": clashes, "combinations": combos, "harms": harms,
-            "destructions": destructions, "three_harmony": san_he}
+            "destructions": destructions, "three_harmony": san_he,
+            "dual_nature_resolution": dual_resolution}
 
 
 # ── Shen Sha + Kong Wang (Stage 4.8/4.9) ───────────────────────

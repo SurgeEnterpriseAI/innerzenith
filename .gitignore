@@ -37,3 +37,6 @@ ios/App/App/public/
 *.keystore
 *.jks
 !debug.keystore
+
+.vercel
+_spec_v6.txt

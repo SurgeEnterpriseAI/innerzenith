@@ -117,6 +117,8 @@ def prashna_chart(tc, question_type: str = "general") -> dict:
     _no_contact = layer4.get("yoga") == "Durapha" or layer4.get("aspect", {}).get("name") == "Asambandhah"
     sign_change_approaching = _approaching_sign_change(planets, sp) if _no_contact else []
     station_approaching = _station_approaching(tc, planets)
+    # Malefic in Lagna — present weight on the matter (independent of stationing).
+    malefic_lagna_occupant = _malefic_lagna_occupant(planets, asc_sign_idx)
     panchanga = _panchanga(planets)
     prashna_chart_yogas = _prashna_yogas(planets, asc_sign_idx)
 
@@ -145,6 +147,7 @@ def prashna_chart(tc, question_type: str = "general") -> dict:
         "station_approaching": station_approaching,
         "panchanga": panchanga,
         "prashna_chart_yogas": prashna_chart_yogas,
+        "malefic_lagna_occupant": malefic_lagna_occupant,
     }
 
 
@@ -598,6 +601,18 @@ _ASPECT_MATRIX = {
     2: ("Asambandhah", "no aspect"), 6: ("Asambandhah", "no aspect"),
     8: ("Asambandhah", "no aspect"), 12: ("Asambandhah", "no aspect"),
 }
+
+
+def _malefic_lagna_occupant(planets, asc_sign_idx):
+    """Spec — Malefic in Lagna Flag (Pankhuri, 2026-06-21). Saturn, Mars, Rahu, or
+    Ketu sitting in the Udaya Lagna house (whole-sign 1st) is PRESENT WEIGHT on the
+    querent/matter — not an upcoming transition. Independent of station_approaching:
+    this fires on a malefic that is simply there now, stationing or not."""
+    out = []
+    for nm in ("Saturn", "Mars", "Rahu", "Ketu"):
+        if nm in planets and sign_index(planets[nm]["lon"]) == asc_sign_idx:
+            out.append({"planet": nm, "retrograde": bool(planets[nm].get("retro"))})
+    return out
 
 
 def _velocity(ps, pp):

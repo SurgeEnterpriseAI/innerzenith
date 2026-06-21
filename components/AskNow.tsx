@@ -20,6 +20,10 @@ For example: "Will I find my lost ring? I thought of asking this on 02 Jun 2026 
 
 What's sitting with you?`;
 
+// A concrete one-line sample for the "how to ask" hint card — shows the three
+// parts (question · exact date & time · city) so the format is obvious at a glance.
+const SAMPLE = "Will I get this opportunity? The question came to me on 18 Jun 2026, 9:30 PM, in Mumbai.";
+
 export default function AskNow({ profile }: { profile: Profile }) {
   const { t } = useT();
   const lang = profile.language ?? null;
@@ -30,6 +34,7 @@ export default function AskNow({ profile }: { profile: Profile }) {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [buffer, setBuffer] = useState("");
+  const [showHint, setShowHint] = useState(true);
   const sessionRef = useRef<Sess | null>(null);
   // Frozen resolved Ask Now inputs (moment/city/question) — set from the server's
   // X-AskNow-Resolved header on the first answer, reused on every follow-up so the
@@ -146,6 +151,34 @@ export default function AskNow({ profile }: { profile: Profile }) {
           )}
         </div>
       </div>
+
+      {showHint && messages.length <= 1 && !streaming && !input.trim() && (
+        <div className="px-4 pb-2">
+          <div className="max-w-2xl mx-auto relative bg-white/[0.04] border border-white/10 rounded-2xl px-4 py-3 pr-9">
+            <button
+              onClick={() => setShowHint(false)}
+              aria-label={t("Dismiss")}
+              className="absolute top-1.5 right-2.5 text-[#777] hover:text-white text-lg leading-none w-6 h-6"
+            >
+              ×
+            </button>
+            <p className="micro-label mb-2">{t("How to ask")}</p>
+            <p className="text-[12.5px] text-[#a9a6a0] leading-relaxed mb-2.5">
+              {t("One sentence, three things:")}{" "}
+              <span className="text-[#e8e6e1]">{t("your question")}</span> ·{" "}
+              <span className="text-[#e8e6e1]">{t("the exact date & time it came to you")}</span> ·{" "}
+              <span className="text-[#e8e6e1]">{t("the city you were in")}</span>.
+            </p>
+            <button
+              onClick={() => { setInput(t(SAMPLE)); setShowHint(false); }}
+              className="text-left font-serif-i italic text-[13px] text-[#b3b3b3] hover:text-white transition"
+            >
+              “{t(SAMPLE)}”{" "}
+              <span className="not-italic text-[11px] text-[#777]">— {t("tap to try")}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="px-4 pb-3">
         <div className="max-w-2xl mx-auto flex items-end gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5 focus-within:border-white/30 transition">

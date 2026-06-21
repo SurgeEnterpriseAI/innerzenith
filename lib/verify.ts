@@ -15,11 +15,11 @@ export function verifyConfigured(): boolean {
 }
 
 const RUBRIC = `You are an exacting, skeptical reviewer of an astrology-style life reading. You are given:
-(A) CALCULATED FACTS — a JSON payload from a deterministic engine. This is the ONLY ground truth. Every claim in the reading must be supported by it.
+(A) CALCULATED FACTS — the chart the writer was given (either a JSON payload from a deterministic engine, or the plain-language chart context derived from it). This is the ONLY ground truth.
 (B) the READING a writer produced.
 
 Judge the reading ONLY against the facts, on these five checks:
-1. GROUNDING — every substantive claim must trace to a specific field in the payload (a named yoga, flag, placement, dignity, period, house occupant). Flag any concrete claim with no supporting field.
+1. GROUNDING — every CHART-SPECIFIC claim must trace to something in the facts: a placement, a strength or weakness, a life-area emphasis (money, health, career, relationship…), a timing window, a named pattern/yoga. A specific claim with no supporting fact is a violation. General warmth or supportive advice that asserts nothing chart-specific is fine; do NOT flag that.
 2. CONTRADICTION — flag any internally contradictory statements. Examples: saying the two sides are "converging / drawing closer" while also saying it "forms no contact / no resolution this window"; saying the person has "full agency" while also saying it is "outside their control".
 3. DOMAIN CREEP — flag any life-area asserted (money, finances, health, family, career, marriage) when no payload field activates that area. A burden on the SELF is not a "financial drain" or a "health cost".
 4. FLAG-READING — flag any misread of a calculated flag. Examples: narrating motion / "converging" when velocity_check.within_orb is false; describing a yoga as the opposite of what the payload says; inventing a timeline/date when the timing field is null; treating an out-of-orb gap's days_to_exact as a real timeline.
@@ -41,12 +41,13 @@ export async function auditReading(
   question: string
 ): Promise<Verdict> {
   if (!geminiConfigured() || !reading || !reading.trim()) return { pass: true, issues: [] };
+  const factsStr = typeof payload === "string" ? payload : JSON.stringify(payload);
   const prompt = `${RUBRIC}
 
 QUESTION: ${question}
 
 CALCULATED FACTS (ground truth):
-${JSON.stringify(payload)}
+${factsStr}
 
 READING:
 ${reading}

@@ -155,9 +155,11 @@ export async function POST(req: NextRequest) {
   let askNowResolved:
     | { datetime_local: string; city: any; question: string; questionType: string }
     | null = null;
-  // The calculated Prashna payload + question — the ground truth the inline critic
-  // (Gemini) audits the reading against before it streams. Set in the asknow branch.
-  let verifyChart: any = null;
+  // Ground-truth chart facts the inline critic (Gemini) audits the reading against,
+  // for ANY mode — asknow: the Prashna chart JSON; natal/surprise: the injected
+  // plain-language chart context. Verification runs whenever this is set + a critic
+  // is configured. Set in each mode branch below.
+  let verifyFacts: string | null = null;
   let verifyQuestion = "";
 
   // Base prompt by mode (Surprise Me uses the natal brain + a special directive).
@@ -182,12 +184,15 @@ export async function POST(req: NextRequest) {
       const today = await fetchToday({
         lat: body.profile?.birth_lat, lon: body.profile?.birth_lng, tz: body.profile?.birth_timezone,
       });
-      system += "\n\n" + buildSurpriseContext(
+      const sCtx = buildSurpriseContext(
         body.chartProfile,
         body.profile?.birth_date ?? null,
         Boolean(body.profile?.birth_time_known),
         today
       );
+      system += "\n\n" + sCtx;
+      verifyFacts = chartToContext(body.chartProfile, body.profile?.current_city) + "\n" + sCtx;
+      verifyQuestion = "today's Surprise Me reading";
     }
   } else if (mode === "asknow") {
     // Stage 8.3 — the three things (question + moment + city). FREEZE them once:
@@ -231,7 +236,7 @@ export async function POST(req: NextRequest) {
     });
     if (chart) {
       askNowResolved = resolved; // echo back so the client freezes it for follow-ups
-      verifyChart = chart; // ground truth for the inline critic
+      verifyFacts = JSON.stringify(chart); // ground truth for the inline critic
       verifyQuestion = resolved.question;
       system +=
         "\n\n--- QUESTION-MOMENT CHART (the three things are all present; answer now) ---\n" +
@@ -250,15 +255,20 @@ export async function POST(req: NextRequest) {
     }
   } else if (body.chartProfile) {
     // Natal — chart computed once at onboarding and stored client-side.
-    system += "\n\n" + chartToContext(body.chartProfile, body.profile?.current_city);
+    const nCtx = chartToContext(body.chartProfile, body.profile?.current_city);
     // Today's slow-planet transits for this topic's houses (best-effort; a cold
     // engine just skips them rather than holding up the reading).
     const todayTransits = await fetchToday(undefined, 10000);
     // Topic-specific chart geometry (spec 7.5 category slice), in plain language.
-    system += categoryContext(body.chartProfile, body.category, todayTransits);
+    const catCtx = categoryContext(body.chartProfile, body.category, todayTransits);
     // Dynamic time-drilldown: if the conversation mentions a year, append it.
     const convoText = body.messages.map((m) => m.content).join(" ");
-    system += timeDrilldown(body.chartProfile, convoText);
+    const drill = timeDrilldown(body.chartProfile, convoText);
+    system += "\n\n" + nCtx + catCtx + drill;
+    // Ground truth for the inline critic — the exact chart context the AI was given.
+    verifyFacts = nCtx + catCtx + drill;
+    const lastU = [...body.messages].reverse().find((m) => m.role === "user" && !m.content.startsWith("__"));
+    verifyQuestion = (lastU?.content || "").slice(0, 240) || (body.category ? `the user's ${body.category} reading` : "the reading");
   } else if (body.birth && body.birth.birth_date) {
     try {
       const chart = await fetchChart(body.birth);
@@ -346,9 +356,10 @@ export async function POST(req: NextRequest) {
   const client = new Anthropic({ apiKey });
   const encoder = new TextEncoder();
 
-  // Inline verification runs only for Ask Now (the high-stakes question-moment
-  // reading) when a chart + a critic are present. Capped revisions bound latency.
-  const verifyOn = mode === "asknow" && Boolean(verifyChart) && verifyConfigured();
+  // Inline verification runs for EVERY mode that has chart facts to check against
+  // (Ask Now, natal categories, Surprise Me) when a critic is configured. Capped
+  // revisions bound latency. Set VERIFY_MAX_REVISIONS=0 to disable revising.
+  const verifyOn = verifyConfigured() && Boolean(verifyFacts);
   const maxRevisions = Math.max(0, Number(readEnv("VERIFY_MAX_REVISIONS") || "1"));
 
   const stream = new ReadableStream({
@@ -366,7 +377,7 @@ export async function POST(req: NextRequest) {
               .join("");
           };
           let reading = await generate("");
-          let verdict = await auditReading(reading, verifyChart, verifyQuestion);
+          let verdict = await auditReading(reading, verifyFacts, verifyQuestion);
           let revs = 0;
           while (!verdict.pass && verdict.issues.length && revs < maxRevisions) {
             revs++;
@@ -374,10 +385,10 @@ export async function POST(req: NextRequest) {
               "\n\n--- REVISION REQUIRED — an independent reviewer checked your draft against the calculated chart and found these problems. Fix EVERY one; keep everything else intact. NEVER mention this review or that the answer was revised. ---\n" +
               verdict.issues.map((x, i) => `${i + 1}. ${x}`).join("\n");
             reading = await generate(fb);
-            verdict = await auditReading(reading, verifyChart, verifyQuestion);
+            verdict = await auditReading(reading, verifyFacts, verifyQuestion);
           }
           // Observability (Vercel logs): did the loop converge, and after how many?
-          console.log(`[verify] asknow revisions=${revs} pass=${verdict.pass} issues=${verdict.issues.length}`);
+          console.log(`[verify] mode=${mode} revisions=${revs} pass=${verdict.pass} issues=${verdict.issues.length}`);
           // Stream the approved reading in small chunks for a live feel.
           for (let i = 0; i < reading.length; i += 64) {
             controller.enqueue(encoder.encode(reading.slice(i, i + 64)));

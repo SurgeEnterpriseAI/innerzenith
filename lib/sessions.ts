@@ -15,6 +15,15 @@ export type Session = {
   created_at: string;
   // Ask Now capture
   askMoment?: { iso: string; city: string | null; lat: number | null; lng: number | null };
+  // Frozen, resolved Ask Now inputs — set once the moment-chart is first cast, so
+  // follow-up messages reuse the SAME moment/question instead of re-extracting
+  // (which could shift the chart). Echoed by the server via X-AskNow-Resolved.
+  askNow?: {
+    datetime_local: string;
+    city: { name: string; latitude: number; longitude: number; timezone: string };
+    question: string;
+    questionType: string;
+  };
 };
 
 const KEY = "dotit.sessions.v1";

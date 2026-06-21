@@ -31,6 +31,10 @@ export default function AskNow({ profile }: { profile: Profile }) {
   const [streaming, setStreaming] = useState(false);
   const [buffer, setBuffer] = useState("");
   const sessionRef = useRef<Sess | null>(null);
+  // Frozen resolved Ask Now inputs (moment/city/question) — set from the server's
+  // X-AskNow-Resolved header on the first answer, reused on every follow-up so the
+  // chart never silently re-extracts to a different moment.
+  const askNowRef = useRef<Sess["askNow"] | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,6 +56,7 @@ export default function AskNow({ profile }: { profile: Profile }) {
     } else {
       s = { ...s, messages: msgs };
     }
+    if (askNowRef.current) s = { ...s, askNow: askNowRef.current };
     sessionRef.current = s;
     upsertSession(s);
   }
@@ -75,9 +80,16 @@ export default function AskNow({ profile }: { profile: Profile }) {
           language: profile.language ?? null,
           // Natal chart enters quietly as a second layer (spec 8.10) — never announced.
           chartProfile: profile.chart_profile ?? null,
+          // Reuse the frozen moment/question if this session already resolved one.
+          askNow: askNowRef.current ?? sessionRef.current?.askNow ?? null,
         }),
       });
       if (!res.ok || !res.body) throw new Error("error");
+      // Freeze the resolved inputs the server echoed back, for follow-up turns.
+      const resolvedHdr = res.headers.get("X-AskNow-Resolved");
+      if (resolvedHdr) {
+        try { askNowRef.current = JSON.parse(decodeURIComponent(resolvedHdr)); } catch {}
+      }
       const reader = res.body.getReader();
       const dec = new TextDecoder();
       let acc = "";

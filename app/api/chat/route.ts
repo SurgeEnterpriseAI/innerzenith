@@ -35,6 +35,24 @@ type ProfileLite = {
   language?: string | null;
 };
 
+// Memoise the question-moment cast: the chart is deterministic for a fixed moment,
+// so a follow-up in the same Ask Now session reuses the identical payload instead
+// of recomputing it. Bounded; warm-instance only — correctness comes from the
+// frozen inputs (below), this is purely a compute saving.
+const _prashnaMemo = new Map<string, any>();
+async function castPrashnaMemo(args: {
+  moment_iso: string; latitude: number; longitude: number; timezone: string; question_type: string;
+}) {
+  const key = `${args.moment_iso}|${args.latitude.toFixed(4)}|${args.longitude.toFixed(4)}|${args.question_type}`;
+  if (_prashnaMemo.has(key)) return _prashnaMemo.get(key);
+  const chart = await castPrashna(args);
+  if (chart) {
+    if (_prashnaMemo.size > 200) _prashnaMemo.clear();
+    _prashnaMemo.set(key, chart);
+  }
+  return chart;
+}
+
 const promptCache: Record<string, { mtime: number; text: string }> = {};
 
 function loadPrompt(file: string, fallback: string): string {
@@ -115,6 +133,14 @@ export async function POST(req: NextRequest) {
         chartProfile?: any | null;
         birth?: EphemerisInput | null;
         language?: string | null;
+        // Frozen Ask Now inputs from a prior turn (see X-AskNow-Resolved) — when
+        // present, the moment/question is reused verbatim instead of re-extracted.
+        askNow?: {
+          datetime_local?: string;
+          city?: { name: string; latitude: number; longitude: number; timezone: string };
+          question?: string;
+          questionType?: string;
+        } | null;
       }
     | null;
   if (!body?.messages || !Array.isArray(body.messages)) {
@@ -123,6 +149,11 @@ export async function POST(req: NextRequest) {
 
   const mode =
     body.mode === "asknow" ? "asknow" : body.mode === "surprise" ? "surprise" : "natal";
+
+  // Resolved Ask Now inputs to echo back so the client can FREEZE them (set below).
+  let askNowResolved:
+    | { datetime_local: string; city: any; question: string; questionType: string }
+    | null = null;
 
   // Base prompt by mode (Surprise Me uses the natal brain + a special directive).
   let system =
@@ -154,32 +185,50 @@ export async function POST(req: NextRequest) {
       );
     }
   } else if (mode === "asknow") {
-    // Stage 8.3 — CONTEXT-DRIVEN collection. Gather the three things WITHOUT a
-    // Claude call: date/time via chrono, city via geocode, question = the rest.
-    const userTexts = body.messages
-      .filter((m) => m.role === "user" && !m.content.startsWith("__"))
-      .map((m) => m.content);
-    const state = await parseAskNow(userTexts);
-
-    if (state.missing.length > 0) {
-      // Still collecting → return a FIXED prompt for the missing piece. No LLM.
-      return new Response(missingPrompt(state), { headers: TEXT_HEADERS });
+    // Stage 8.3 — the three things (question + moment + city). FREEZE them once:
+    // if the client sends a resolved `askNow` (from a prior turn's X-AskNow-Resolved
+    // header), reuse it verbatim so a follow-up message can't re-extract a different
+    // moment/question and shift the chart. Otherwise extract now via chrono+geocode.
+    let resolved: { datetime_local: string; city: any; question: string; questionType: string } | null = null;
+    const frozen = body.askNow;
+    if (frozen?.datetime_local && frozen?.city && typeof frozen.city.latitude === "number") {
+      resolved = {
+        datetime_local: frozen.datetime_local,
+        city: frozen.city,
+        question: frozen.question ?? "",
+        questionType: frozen.questionType ?? "general",
+      };
+    } else {
+      const userTexts = body.messages
+        .filter((m) => m.role === "user" && !m.content.startsWith("__"))
+        .map((m) => m.content);
+      const state = await parseAskNow(userTexts);
+      if (state.missing.length > 0) {
+        // Still collecting → return a FIXED prompt for the missing piece. No LLM.
+        return new Response(missingPrompt(state), { headers: TEXT_HEADERS });
+      }
+      resolved = {
+        datetime_local: state.datetime_local!,
+        city: state.city!,
+        question: state.question ?? "",
+        questionType: state.questionType,
+      };
     }
 
-    // All three present → cast the question-moment chart. Claude runs ONCE now,
-    // only to produce the reading.
-    const geo = state.city!;
-    const chart = await castPrashna({
-      moment_iso: state.datetime_local!,
+    // Cast the question-moment chart (memoised — deterministic for a fixed moment).
+    const geo = resolved.city;
+    const chart = await castPrashnaMemo({
+      moment_iso: resolved.datetime_local,
       latitude: geo.latitude,
       longitude: geo.longitude,
       timezone: geo.timezone,
-      question_type: state.questionType,
+      question_type: resolved.questionType,
     });
     if (chart) {
+      askNowResolved = resolved; // echo back so the client freezes it for follow-ups
       system +=
         "\n\n--- QUESTION-MOMENT CHART (the three things are all present; answer now) ---\n" +
-        `Question: ${state.question}\nMoment: ${state.datetime_local} in ${geo.name}\n` +
+        `Question: ${resolved.question}\nMoment: ${resolved.datetime_local} in ${geo.name}\n` +
         JSON.stringify(chart);
       if (body.chartProfile) {
         system +=
@@ -333,6 +382,11 @@ export async function POST(req: NextRequest) {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-store",
       "X-Accel-Buffering": "no",
+      // Echo the resolved Ask Now inputs so the client can freeze them and reuse
+      // the exact same moment/question on follow-up turns. URI-encoded JSON.
+      ...(askNowResolved
+        ? { "X-AskNow-Resolved": encodeURIComponent(JSON.stringify(askNowResolved)) }
+        : {}),
     },
   });
 }

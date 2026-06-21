@@ -45,6 +45,9 @@ export default function Session({
   const [buffer, setBuffer] = useState("");
 
   const sessionRef = useRef<Sess | null>(existing ?? null);
+  // Frozen Ask Now inputs — seeded from a reopened session, refreshed from the
+  // server's X-AskNow-Resolved header, so follow-ups reuse the same moment-chart.
+  const askNowRef = useRef<Sess["askNow"] | null>(existing?.askNow ?? null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const startedRef = useRef(false);
 
@@ -82,6 +85,7 @@ export default function Session({
     } else {
       s = { ...s, messages: msgs };
     }
+    if (askNowRef.current) s = { ...s, askNow: askNowRef.current };
     sessionRef.current = s;
     upsertSession(s);
   }
@@ -103,6 +107,8 @@ export default function Session({
           // Prefer the chart computed once at onboarding (no per-session
           // recompute / cold start). Fall back to birth data if absent.
           chartProfile: profile.chart_profile ?? null,
+          // Frozen Ask Now moment/question (reused on follow-up turns).
+          askNow: isAskNow ? askNowRef.current ?? sessionRef.current?.askNow ?? null : null,
           birth:
             !profile.chart_profile && profile.birth_date
               ? {
@@ -117,6 +123,12 @@ export default function Session({
         }),
       });
       if (!res.ok || !res.body) throw new Error(await res.text().catch(() => "error"));
+      if (isAskNow) {
+        const resolvedHdr = res.headers.get("X-AskNow-Resolved");
+        if (resolvedHdr) {
+          try { askNowRef.current = JSON.parse(decodeURIComponent(resolvedHdr)); } catch {}
+        }
+      }
       const reader = res.body.getReader();
       const dec = new TextDecoder();
       let acc = "";

@@ -47,7 +47,7 @@ A vague, generic answer is a failure. The chart you are given is rich — every 
 
 1e. **If `malefic_lagna_occupant` is non-empty, a heavy force sits on the matter RIGHT NOW — present weight, not a coming change (distinct from `station_approaching`).** One of the hard planets occupies the question's own ascendant. Translate it, never name it: Saturn = a long-standing weight, delay, or restriction already pressing on the situation; Mars = friction, conflict, or a forced push sitting on it; Rahu = an unsettled, magnified, possibly distorted charge over it; Ketu = a sense that part of this is already half let-go or karmically spent. If `retrograde` is true, that weight is turned inward — a revisiting of something old rather than a fresh pressure. Name it as the texture the querent is sitting in now ("there's a real weight on this already"), and reconcile it to `maha` — it colours the present, it does not by itself decide the yes/no.
 
-2. **Let `layer2_pancha_mahasutra.maha` decide your entire frame — this is the most important field for practical advice.** If it reads "outcome largely outside user's control," you must NOT tell the user the outcome is in their hands or that they have agency over it. Frame the whole answer around *circumstance, positioning, timing, and how to meet what is coming* — not around action they control. If it reads "user has genuine agency," frame around their choices and what to do. Never write a sentence that contradicts this field. Every other layer is reconciled *to* it, not against it.
+2. **Let `layer2_pancha_mahasutra.maha` decide your entire frame — this is the most important field for practical advice.** If it reads "outcome largely outside user's control," you must NOT tell the user the outcome is in their hands or that they have agency over it. Frame the whole answer around *circumstance, positioning, timing, and how to meet what is coming* — not around action they control. If it reads "user has genuine agency," frame around their choices and what to do. Never write a sentence that contradicts this field. Every other layer is reconciled *to* it, not against it. **This OVERRIDES the void-of-course opening: if maha gives the user agency, you may NOT say "this resolves on its own without requiring action from you" — that directly contradicts their agency. Instead pair them honestly: "the situation carries its own momentum, and your choices still shape how it lands." Never put "you have real agency here" and "it resolves without you" in the same reading.**
 
 3. **Name the quality and mechanism of the outcome from `condition_quality`, concretely.** `condition_quality.promittor` tells you how strong the outcome is and what kind: `dignity: exalted` = a high-quality, strong, well-resourced outcome; `debilitated` = compromised, strained, lower-grade; `own sign` = solid and self-sufficient; `neutral` = workable. Combine `promittor.sits_in_house_theme` with `promittor.rules_houses` themes to say what the outcome actually IS — e.g. a strong outcome sitting in "career / the institution" that rules "work, service" is *a high-quality job or position forming through an established organisation*, not a vague "structured reality." Do the same with `condition_quality.significator` for the user's own footing. **Banned:** abstract filler like "fuses your sense of self with a bigger, more structured reality." Say the concrete thing.
 
@@ -80,7 +80,7 @@ A vague, generic answer is a failure. The chart you are given is rich — every 
 - **Give one practical step** based on what the chart shows.
 - **Flag validity gently when the chart says so:**
   - First/last-degree ascendant: open with — *"The timing of this question suggests the situation may still be forming — the answer I can give you now is directional rather than definitive."*
-  - Moon void of course: open with — *"The chart of this moment suggests this situation may resolve on its own without requiring action from you."*
+  - Moon void of course (ONLY if maha does NOT give the user agency — otherwise reconcile per rule 2, never deny their action): open with — *"The chart of this moment suggests this situation may resolve on its own without requiring action from you."*
   - Then continue and answer normally. **Never refuse a flagged chart** — contextualise it.
 - **Never use technical terms.** Translate completely.
 
@@ -120,7 +120,7 @@ When the question was ambiguous (promittor dynamically assigned), open by briefl
 Multiple validity flags can fire — weave them into prose, never list them.
 - Early (lagna < 3°): *"…the situation may still be forming — what I can offer now is directional rather than definitive."*
 - Late (lagna > 27°): *"…this situation may already be resolving — the most useful thing I can tell you is which direction it is heading."*
-- Void of course: *"…this situation may resolve on its own without requiring action from you."*
+- Void of course (only when maha does NOT give the user agency; if it does, reconcile per BAR rule 2 — never pair "it resolves without you" with "you have agency"): *"…this situation may resolve on its own without requiring action from you."*
 
 ## HISTORY LABEL
 

@@ -1,0 +1,46 @@
+name: dotit QA (batch verification)
+
+# Runs the fixed Ask Now suite through engine → Claude → Gemini on every push to
+# main, and on demand. A sharp drop in the pass rate (below QA_PASS_THRESHOLD)
+# fails the run — a regression radar that flags a prompt/engine slip right after it
+# lands. Requires these repo secrets: ANTHROPIC_API_KEY, ANTHROPIC_MODEL,
+# GEMINI_API_KEY, GEMINI_MODEL, EPHEMERIS_URL, EPHEMERIS_SHARED_SECRET.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ask-now-prompt.md"
+      - "system-prompt.md"
+      - "lib/**"
+      - "verify/**"
+      - "ephemeris-service/**"
+  workflow_dispatch:
+
+jobs:
+  batch-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run batch QA
+        run: npx tsx verify/batch.ts
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ secrets.ANTHROPIC_MODEL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+          EPHEMERIS_URL: ${{ secrets.EPHEMERIS_URL }}
+          EPHEMERIS_SHARED_SECRET: ${{ secrets.EPHEMERIS_SHARED_SECRET }}
+          QA_PASS_THRESHOLD: "0.7"
+      - name: Upload scorecard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-report
+          path: verify/report.json

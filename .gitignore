@@ -40,3 +40,5 @@ ios/App/App/public/
 
 .vercel
 _spec_v6.txt
+
+verify/report.json

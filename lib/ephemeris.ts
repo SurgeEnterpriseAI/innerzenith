@@ -248,6 +248,48 @@ const _TRANSIT_HOUSES: Record<string, number[]> = {
   property: [4, 2, 12], health: [1, 6, 8, 12], purpose: [9, 5, 12],
 };
 
+// Plain-language strength note for a topic's ruling planet, from its dignity — so
+// the reading reflects whether the ruler is well-resourced or strained, not just
+// its theme (Rule 1: never name the planet or the dignity).
+function _lordStrengthPhrase(v: any, planet: string): string {
+  const d = v?.dignities?.[planet];
+  if (!d) return "";
+  if (d.essential_dignity === "Exalted") return ", and that drive is exceptionally strong and well-resourced";
+  if (d.essential_dignity === "Debilitated") return ", though that drive is under real strain and has to work harder than it should";
+  if (d.essential_dignity === "Moolatrikona" || d.essential_dignity === "Own") return ", and that drive stands on solid, self-sufficient ground";
+  if (d.combust) return ", though it tends to work from behind the scenes rather than out in the open";
+  return "";
+}
+
+// The chart's real yoga combinations, in plain meaning — surfaced PER TOPIC so the
+// reading reflects the actual born-in patterns that bear on the question, not just
+// generic life-themes (spec 7.5). Matched by name substring; tied to topic by life_area.
+const _YOGA_PLAIN: Record<string, string> = {
+  Ruchaka: "a rare, defining strength of drive, courage, and command",
+  Bhadra: "a rare, defining sharpness of intellect and communication",
+  Hamsa: "a rare, defining depth of wisdom and integrity",
+  Malavya: "a rare, defining gift for refinement, charisma, and drawing comfort and beauty",
+  Sasa: "a rare, defining capacity for discipline, structure, and authority",
+  "Raja Yoga": "a real capacity for status, leadership, and rising in the world",
+  "Vipreet Raja": "a capacity to rise specifically through setbacks and adversity",
+  Dhana: "a genuine pull toward wealth and material security",
+  Amala: "a clean, well-regarded public reputation",
+  "Gaja Kesari": "wisdom and the lasting respect of others",
+  "Neecha Bhanga": "an early weakness in this area that converts into real strength",
+};
+const _TOPIC_YOGA_AREAS: Record<string, string[]> = {
+  career: ["character", "reputation", "power/status", "wealth", "rise through adversity", "wisdom/respect"],
+  money: ["wealth", "power/status", "reputation"],
+  relationships: ["character", "marriage", "relationship", "wisdom/respect"],
+  property: ["wealth", "home", "power/status"],
+  health: ["character", "transformation"],
+  purpose: ["character", "wisdom/respect", "reputation", "rise through adversity"],
+};
+function _plainYoga(name: string): string | null {
+  for (const k of Object.keys(_YOGA_PLAIN)) if (name.includes(k)) return _YOGA_PLAIN[k];
+  return null;
+}
+
 export function categoryContext(profile: any, category?: string | null, today?: any): string {
   if (!profile || !category) return "";
   const spec = _CATEGORY_CHART[category];
@@ -268,7 +310,7 @@ export function categoryContext(profile: any, category?: string | null, today?: 
     const lp = planets[lord];
     if (lp && typeof lp.house_whole_sign === "number") {
       const t = planetTheme(lord);
-      if (t) facts.push(`what drives your ${spec.area} carries the quality of ${t}, and right now it plays out through the part of life about ${_HOUSE_LIFE[lp.house_whole_sign]}`);
+      if (t) facts.push(`what drives your ${spec.area} carries the quality of ${t}${_lordStrengthPhrase(v, lord)}, and right now it plays out through the part of life about ${_HOUSE_LIFE[lp.house_whole_sign]}`);
     }
     // occupants of the house
     const occ = Object.keys(planets)
@@ -311,6 +353,21 @@ export function categoryContext(profile: any, category?: string | null, today?: 
     if (strong.length) facts.push(`here, ${strong.join("; ")} run exceptionally strong`);
     if (weak.length) facts.push(`here, ${weak.join("; ")} are weakened and need conscious support`);
   }
+
+  // Topic yogas — the chart's REAL born-in combinations that bear on this area,
+  // tied to the topic (spec 7.5). Without this they only show in the global context,
+  // untethered from the question — the gap that made topic readings feel generic.
+  const wantAreas = _TOPIC_YOGA_AREAS[category] || [];
+  const topicYogas = [
+    ...new Set(
+      (v.yogas || [])
+        .filter((y: any) => y && y.strength !== "note" && wantAreas.includes(y.life_area))
+        .map((y: any) => _plainYoga(y.name))
+        .filter(Boolean) as string[]
+    ),
+  ].slice(0, 2);
+  if (topicYogas.length)
+    facts.push(`a defining pattern you were born with bears directly on this — ${topicYogas.join("; and ")}; name it as a real, specific gift, not a vague strength`);
 
   // Transit triggers — slow planets (Saturn/Jupiter/Rahu/Ketu) currently passing
   // through this topic's key houses. Live, not natal (spec 7.5 house schema).

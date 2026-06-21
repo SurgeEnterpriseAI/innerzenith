@@ -765,7 +765,9 @@ def _layer4_tajika(planets, sp, moon):
 
     yoga = None; retro_ith = False; details = {"velocity": vel}
     if aspect_name == "Asambandhah":
-        # scan Nakta bridge via Moon
+        # No Step-1 aspect at all → no active contact; velocity direction is not a
+        # narratable signal (the two are not in range to "converge" toward anything).
+        vel["within_orb"] = False
         nakta = _nakta_bridge(planets, S, P, moon)
         yoga = "Nakta" if nakta else "Durapha"
         details["nakta_bridge"] = nakta
@@ -773,6 +775,10 @@ def _layer4_tajika(planets, sp, moon):
         orb = (DEETHI.get(S, 8) + DEETHI.get(P, 8)) / 2.0
         sep = vel["gap_now"]
         within = sep <= orb
+        # within_orb gates whether the velocity direction is a real, narratable
+        # signal: a gap far outside the orb that happens to be shrinking is NOT
+        # "the two sides inching closer" — it forms no contact in this window.
+        vel["within_orb"] = within
         # Kamboola — mutual reception
         kamboola = SIGN_LORDS[ps["sign"]] == P and SIGN_LORDS[pp["sign"]] == S
         if dist == 1:
@@ -808,14 +814,32 @@ def _layer4_tajika(planets, sp, moon):
     }
 
 
+def _valid_tajika_aspect(planets, a, b):
+    """A genuine Tajika contact between two bodies: a valid Step-1 SIGN aspect (not
+    Asambandhah) whose degree-within-sign gap is inside the combined Deethi orb.
+    Longitudinal nearness alone is NOT a Tajika aspect — a 2nd/6th/8th/12th sign
+    relationship forms no aspect no matter how close the degrees."""
+    if a not in planets or b not in planets:
+        return False
+    dist = house_from(sign_index(planets[a]["lon"]), sign_index(planets[b]["lon"]))
+    if _ASPECT_MATRIX[dist][0] == "Asambandhah":
+        return False
+    orb = (DEETHI.get(a, 8) + DEETHI.get(b, 8)) / 2.0
+    return _velocity(planets[a], planets[b])["gap_now"] <= orb
+
+
 def _nakta_bridge(planets, S, P, moon):
-    """Moon forms an Ithasala with both S and P (faster intermediary)."""
-    for x in (S, P):
-        if x not in planets:
-            return False
-    orb_s = (DEETHI["Moon"] + DEETHI.get(S, 8)) / 2.0
-    orb_p = (DEETHI["Moon"] + DEETHI.get(P, 8)) / 2.0
-    return _orb(moon, planets[S]["lon"]) <= orb_s and _orb(moon, planets[P]["lon"]) <= orb_p
+    """Nakta Yoga — the Moon (fast intermediary) carries the light by forming a
+    VALID applying Tajika aspect with BOTH S and P. Each leg must be a real Step-1
+    sign aspect within orb; an Asambandhah relationship on either leg (e.g. the Moon
+    2nd/6th/8th/12th from a significator) cannot bridge, regardless of how near the
+    degrees sit. The Moon must additionally be applying (closing) to the promittor
+    it delivers the light to."""
+    if "Moon" not in planets or S not in planets or P not in planets:
+        return False
+    if not (_valid_tajika_aspect(planets, "Moon", S) and _valid_tajika_aspect(planets, "Moon", P)):
+        return False
+    return _velocity(planets["Moon"], planets[P])["direction"] == "closing"
 
 
 def _frustration(planets, S, P):

@@ -1,10 +1,15 @@
 "use client";
 
-// Stage 7.3 — bottom navigation, 4 items.
+// Stage 7.3 — bottom navigation, 4 items. Plus a one-time coachmark that, on the
+// first home screen after onboarding, points at the Ask Now tab and explains it,
+// then disappears (auto after a few seconds, or on tap / any navigation).
 
+import { useEffect, useState } from "react";
 import { useT } from "@/lib/i18n";
 
 export type Tab = "home" | "asknow" | "history" | "profile";
+
+const COACH_KEY = "dotit.asknowCoach.v1";
 
 export default function BottomNav({
   active,
@@ -14,6 +19,27 @@ export default function BottomNav({
   onChange: (t: Tab) => void;
 }) {
   const { t } = useT();
+
+  // One-time Ask Now coachmark (client-only; localStorage gates it to once ever).
+  const [showCoach, setShowCoach] = useState(false);
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem(COACH_KEY)) {
+        setShowCoach(true);
+        const timer = setTimeout(() => dismissCoach(), 9000);
+        return () => clearTimeout(timer);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  function dismissCoach() {
+    setShowCoach(false);
+    try { localStorage.setItem(COACH_KEY, "1"); } catch {}
+  }
+  function handleChange(tab: Tab) {
+    if (showCoach) dismissCoach();
+    onChange(tab);
+  }
   const items: { key: Tab; label: string; icon: JSX.Element }[] = [
     { key: "home", label: t("Home"), icon: <HomeIcon /> },
     { key: "asknow", label: t("Ask Now"), icon: <BoltIcon /> },
@@ -22,13 +48,33 @@ export default function BottomNav({
   ];
   return (
     <nav className="fixed bottom-0 inset-x-0 bg-[#2b2b2b]/95 backdrop-blur border-t border-white/10 z-20">
-      <div className="max-w-md mx-auto flex">
+      <div className="max-w-md mx-auto flex relative">
+        {showCoach && active === "home" && (
+          <div className="absolute z-30 inset-x-3" style={{ bottom: "calc(100% + 10px)" }}>
+            <button
+              onClick={dismissCoach}
+              aria-label={t("Got it")}
+              className="relative block w-full text-left bg-white text-[#2b2b2b] rounded-2xl px-4 py-3 shadow-xl"
+            >
+              <p className="text-[10px] uppercase tracking-wider text-[#888] mb-1">{t("New here?")}</p>
+              <p className="text-[13px] leading-snug">
+                {t("Tap")} <span className="font-semibold">{t("Ask Now")}</span>{" "}
+                {t("to ask one spontaneous question — give it the exact time and city the question came to you.")}
+              </p>
+              {/* arrow pointing down to the Ask Now tab (2nd of 4 → 37.5%) */}
+              <span
+                className="absolute w-3.5 h-3.5 bg-white"
+                style={{ bottom: "-6px", left: "37.5%", transform: "translateX(-50%) rotate(45deg)" }}
+              />
+            </button>
+          </div>
+        )}
         {items.map((it) => {
           const on = active === it.key;
           return (
             <button
               key={it.key}
-              onClick={() => onChange(it.key)}
+              onClick={() => handleChange(it.key)}
               className="flex-1 flex flex-col items-center gap-1 py-2.5"
             >
               <span className="relative" style={{ color: on ? "#fff" : "#b3b3b3" }}>

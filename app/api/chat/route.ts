@@ -7,6 +7,7 @@ import { readEnv } from "@/lib/env";
 import { classicalGrounding } from "@/lib/rag";
 import { parseAskNow, missingPrompt } from "@/lib/asknow";
 import { languageByCode } from "@/lib/languages";
+import { auditReading, verifyConfigured } from "@/lib/verify";
 
 const TEXT_HEADERS = {
   "Content-Type": "text/plain; charset=utf-8",
@@ -154,6 +155,10 @@ export async function POST(req: NextRequest) {
   let askNowResolved:
     | { datetime_local: string; city: any; question: string; questionType: string }
     | null = null;
+  // The calculated Prashna payload + question — the ground truth the inline critic
+  // (Gemini) audits the reading against before it streams. Set in the asknow branch.
+  let verifyChart: any = null;
+  let verifyQuestion = "";
 
   // Base prompt by mode (Surprise Me uses the natal brain + a special directive).
   let system =
@@ -226,6 +231,8 @@ export async function POST(req: NextRequest) {
     });
     if (chart) {
       askNowResolved = resolved; // echo back so the client freezes it for follow-ups
+      verifyChart = chart; // ground truth for the inline critic
+      verifyQuestion = resolved.question;
       system +=
         "\n\n--- QUESTION-MOMENT CHART (the three things are all present; answer now) ---\n" +
         `Question: ${resolved.question}\nMoment: ${resolved.datetime_local} in ${geo.name}\n` +
@@ -339,9 +346,46 @@ export async function POST(req: NextRequest) {
   const client = new Anthropic({ apiKey });
   const encoder = new TextEncoder();
 
+  // Inline verification runs only for Ask Now (the high-stakes question-moment
+  // reading) when a chart + a critic are present. Capped revisions bound latency.
+  const verifyOn = mode === "asknow" && Boolean(verifyChart) && verifyConfigured();
+  const maxRevisions = Math.max(0, Number(readEnv("VERIFY_MAX_REVISIONS") || "1"));
+
   const stream = new ReadableStream({
     async start(controller) {
       try {
+        if (verifyOn) {
+          // PRODUCE → AUDIT (diverse AI) → REVISE, then stream the approved reading.
+          const generate = async (extra: string): Promise<string> => {
+            const msg = await client.messages.create({
+              model, system: system + extra, max_tokens: 4096, messages,
+            });
+            return msg.content
+              .filter((b: any) => b.type === "text")
+              .map((b: any) => b.text)
+              .join("");
+          };
+          let reading = await generate("");
+          let verdict = await auditReading(reading, verifyChart, verifyQuestion);
+          let revs = 0;
+          while (!verdict.pass && verdict.issues.length && revs < maxRevisions) {
+            revs++;
+            const fb =
+              "\n\n--- REVISION REQUIRED — an independent reviewer checked your draft against the calculated chart and found these problems. Fix EVERY one; keep everything else intact. NEVER mention this review or that the answer was revised. ---\n" +
+              verdict.issues.map((x, i) => `${i + 1}. ${x}`).join("\n");
+            reading = await generate(fb);
+            verdict = await auditReading(reading, verifyChart, verifyQuestion);
+          }
+          // Observability (Vercel logs): did the loop converge, and after how many?
+          console.log(`[verify] asknow revisions=${revs} pass=${verdict.pass} issues=${verdict.issues.length}`);
+          // Stream the approved reading in small chunks for a live feel.
+          for (let i = 0; i < reading.length; i += 64) {
+            controller.enqueue(encoder.encode(reading.slice(i, i + 64)));
+          }
+          controller.close();
+          return;
+        }
+
         const streamResp = await client.messages.stream({
           model,
           system,

@@ -276,6 +276,7 @@ const _YOGA_PLAIN: Record<string, string> = {
   Amala: "a clean, well-regarded public reputation",
   "Gaja Kesari": "wisdom and the lasting respect of others",
   "Neecha Bhanga": "an early weakness in this area that converts into real strength",
+  "Parivartana": "two parts of your life feeding and strengthening each other",
 };
 const _TOPIC_YOGA_AREAS: Record<string, string[]> = {
   career: ["character", "reputation", "power/status", "wealth", "rise through adversity", "wisdom/respect"],
@@ -470,6 +471,14 @@ export function categoryContext(profile: any, category?: string | null, today?: 
     const weak = Object.keys(varga.planets).filter((nm) => _DEBIL[nm] === varga.planets[nm] && planetTheme(nm)).map((nm) => planetTheme(nm));
     if (strong.length) facts.push(`here, ${strong.join("; ")} run exceptionally strong`);
     if (weak.length) facts.push(`here, ${weak.join("; ")} are weakened and need conscious support`);
+    // Divisional yogas (spec 2.9 extension) — born-in Raja/Dhana/Parivartana patterns
+    // INSIDE this varga (D10 for career, D9 for relationships/purpose), stored
+    // separately from the D1 yogas. Only D9/D10 carry them.
+    const vYogas = [
+      ...new Set((varga.yogas || []).map((y: any) => _plainYoga(y?.name)).filter(Boolean) as string[]),
+    ].slice(0, 2);
+    if (vYogas.length)
+      facts.push(`woven into the deep grain of your ${spec.area} is a born-in pattern that bears directly here — ${vYogas.join("; and ")}`);
   }
 
   // Topic yogas — the chart's REAL born-in combinations that bear on this area,

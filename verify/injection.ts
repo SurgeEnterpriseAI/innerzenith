@@ -37,6 +37,7 @@ const REQUIRED: Record<string, { label: string; marker: RegExp }[]> = {
     { label: "Upapada Lagna (marriage arudha)", marker: /committed, lasting bond/i },
     { label: "D9 Lagna lord (deeper texture)", marker: /deeper, underlying texture/i },
     { label: "topic yoga tied to relationships", marker: /defining pattern you were born with/i },
+    { label: "D9 divisional yoga (spec 2.9 extension)", marker: /born-in pattern that bears directly here/i },
   ],
   money: [
     { label: "wealth-house lord drive", marker: /what drives your money/i },

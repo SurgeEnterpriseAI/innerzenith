@@ -356,6 +356,50 @@ def _varga_sign_index(lon: float, division: int) -> int:
     return (base + part) % 12
 
 
+def _divisional_yogas(varga_planets: dict, lagna_sign: str) -> list:
+    """Raja / Dhana / Parivartana yogas WITHIN a divisional chart (spec 2.9
+    Divisional Yoga Extension). varga_planets maps planet -> sign in the varga.
+    Stored separately from D1 yogas; D10 feeds Career, D9 feeds Relationships and
+    Life Purpose. Nodes carry no lordship and are excluded from the lord logic."""
+    if not varga_planets or lagna_sign not in SIGNS:
+        return []
+    lidx = SIGNS.index(lagna_sign)
+    house_of = {}
+    for nm, sgn in varga_planets.items():
+        if nm in ("Rahu", "Ketu") or sgn not in SIGNS:
+            continue
+        house_of[nm] = house_from(lidx, SIGNS.index(sgn))
+    house_lord = {h: SIGN_LORDS[SIGNS[nth_sign(lidx, h)]] for h in range(1, 13)}
+    out = []
+    # Raja — a kendra lord and a trikona lord conjunct (same varga house)
+    for kl in {house_lord[h] for h in (1, 4, 7, 10)}:
+        for tl in {house_lord[h] for h in (1, 5, 9)}:
+            if kl != tl and house_of.get(kl) is not None and house_of.get(kl) == house_of.get(tl):
+                out.append({"name": "Raja Yoga", "components": sorted([kl, tl])})
+    # Dhana — two distinct wealth-house lords (2/5/9/11) conjunct
+    dl = sorted({house_lord[h] for h in (2, 5, 9, 11)})
+    for i in range(len(dl)):
+        for j in range(i + 1, len(dl)):
+            a, b = dl[i], dl[j]
+            if house_of.get(a) is not None and house_of.get(a) == house_of.get(b):
+                out.append({"name": "Dhana Yoga", "components": [a, b]})
+    # Parivartana — mutual sign exchange within the varga
+    for a, asgn in varga_planets.items():
+        if a in ("Rahu", "Ketu") or asgn not in SIGNS:
+            continue
+        la = SIGN_LORDS[asgn]
+        if la == a or la not in varga_planets:
+            continue
+        if SIGN_LORDS.get(varga_planets[la]) == a:
+            out.append({"name": "Parivartana Yoga", "components": sorted([a, la])})
+    seen, uniq = set(), []
+    for y in out:
+        k = (y["name"], tuple(y["components"]))
+        if k not in seen:
+            seen.add(k); uniq.append(y)
+    return uniq
+
+
 def divisional_charts(planets: dict, asc_lon: float, time_known: bool,
                       time_to_minute: bool) -> dict:
     divisions = {
@@ -381,6 +425,10 @@ def divisional_charts(planets: dict, asc_lon: float, time_known: bool,
             entry["deities"] = {name: _d60_deity(p["total_degrees"])
                                 for name, p in planets.items()}
             entry["lagna_deity"] = _d60_deity(asc_lon)
+        if label in ("D9", "D10"):
+            # Divisional Yoga Extension (spec 2.9) — Raja/Dhana/Parivartana in this
+            # varga, stored separately from the D1 yogas. D10 → Career, D9 → Rel/Purpose.
+            entry["yogas"] = _divisional_yogas(entry["planets"], entry["lagna_sign"])
         charts[label] = entry
     return charts
 

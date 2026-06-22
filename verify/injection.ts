@@ -27,6 +27,8 @@ const chart = JSON.parse(
 const REQUIRED: Record<string, { label: string; marker: RegExp }[]> = {
   career: [
     { label: "10th-lord drive + strength", marker: /what drives your work/i },
+    { label: "A10 arudha LORD", marker: /public image is shaped by/i },
+    { label: "D10 Lagna lord (deeper texture)", marker: /deeper, underlying texture/i },
     { label: "topic yoga tied to career", marker: /defining pattern you were born with/i },
   ],
   relationships: [
@@ -36,12 +38,28 @@ const REQUIRED: Record<string, { label: string; marker: RegExp }[]> = {
     { label: "D9 Lagna lord (deeper texture)", marker: /deeper, underlying texture/i },
     { label: "topic yoga tied to relationships", marker: /defining pattern you were born with/i },
   ],
-  money: [{ label: "wealth-house lord drive", marker: /what drives your money/i }],
-  property: [{ label: "4th-house lord drive", marker: /what drives your home/i }],
-  health: [{ label: "6th-house lord drive", marker: /what drives your health/i }],
+  money: [
+    { label: "wealth-house lord drive", marker: /what drives your money/i },
+    { label: "A2 arudha LORD", marker: /public image is shaped by/i },
+  ],
+  property: [
+    { label: "4th-house lord drive", marker: /what drives your home/i },
+    { label: "A4 arudha LORD", marker: /public image is shaped by/i },
+  ],
+  health: [
+    { label: "6th-house lord drive", marker: /what drives your health/i },
+    { label: "H8 crises/longevity", marker: /weather crises and what carries your long-term resilience/i },
+    { label: "H12 sleep/mental health", marker: /your rest, your sleep, and your inner mental balance/i },
+    { label: "D8 longevity (physical resilience)", marker: /deep thread of your physical resilience/i },
+    { label: "D27 constitutional indicator", marker: /your underlying constitution carries the quality of/i },
+  ],
   purpose: [
     { label: "9th-house lord drive", marker: /what drives your meaning/i },
     { label: "D9 Lagna lord (deeper texture)", marker: /deeper, underlying texture/i },
+    { label: "Atmakaraka (deepest driver)", marker: /deepest driver of your life's work/i },
+    { label: "Karakamsha (PRIMARY indicator)", marker: /soul-level signature of your purpose/i },
+    { label: "D20 dharma/spiritual lagna lord", marker: /spiritual thread underneath/i },
+    { label: "current Narayana Dasha sign", marker: /chapter of purpose you're living right now/i },
   ],
 };
 

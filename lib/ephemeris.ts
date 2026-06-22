@@ -328,6 +328,12 @@ export function categoryContext(profile: any, category?: string | null, today?: 
   if (ar && _SIGNS.includes(ar)) {
     const ah = houseOf(ar);
     facts.push(`the way your ${spec.area} actually appears to others takes the shape of ${_HOUSE_LIFE[ah]}`);
+    // The arudha's LORD (spec 7.5: A10/A2/A4/A9 lord — name, house, dignity) — what
+    // actually shapes that public image. This was dropped for every category.
+    const arLord = _SIGN_LORD[ar];
+    const alp = planets[arLord];
+    if (planetTheme(arLord) && alp && typeof alp.house_whole_sign === "number")
+      facts.push(`and that public image is shaped by ${planetTheme(arLord)}${_lordStrengthPhrase(v, arLord)}, working through the part of life about ${_HOUSE_LIFE[alp.house_whole_sign]}`);
   }
 
   // Relationships-specific (spec 7.5) — the spouse-significator (Darakaraka) and
@@ -349,6 +355,92 @@ export function categoryContext(profile: any, category?: string | null, today?: 
         `the shape a committed, lasting bond actually takes for you shows up through ${_HOUSE_LIFE[houseOf(ul)]}` +
         (planetTheme(ulLord) ? `, carried by ${planetTheme(ulLord)}${_lordStrengthPhrase(v, ulLord)}` : "")
       );
+    }
+  }
+
+  // Health-specific (spec 7.5) — H8 (crises/longevity) and H12 (rest/sleep/mental
+  // health) alongside the H1/H6 already injected, plus the D8 longevity layer and
+  // the D27 constitutional indicator. None captured by the generic house/varga logic.
+  if (category === "health") {
+    const h8sign = houseSignFor(8);
+    const h8lord = _SIGN_LORD[h8sign];
+    const h8lp = planets[h8lord];
+    if (planetTheme(h8lord) && h8lp && typeof h8lp.house_whole_sign === "number")
+      facts.push(`how you weather crises and what carries your long-term resilience runs on ${planetTheme(h8lord)}${_lordStrengthPhrase(v, h8lord)}, and it works itself out through the part of life about ${_HOUSE_LIFE[h8lp.house_whole_sign]}`);
+    const h8occ = Object.keys(planets).filter((nm) => planets[nm]?.house_whole_sign === 8 && planetTheme(nm)).map((nm) => planetTheme(nm));
+    if (h8occ.length)
+      facts.push(`sitting inside the part of life about sudden upheavals and deep recovery are forces of ${h8occ.join("; ")} — these shape how your body meets a real shock`);
+
+    const h12sign = houseSignFor(12);
+    const h12lord = _SIGN_LORD[h12sign];
+    const h12lp = planets[h12lord];
+    if (planetTheme(h12lord) && h12lp && typeof h12lp.house_whole_sign === "number")
+      facts.push(`your rest, your sleep, and your inner mental balance are governed by ${planetTheme(h12lord)}${_lordStrengthPhrase(v, h12lord)}, surfacing through the part of life about ${_HOUSE_LIFE[h12lp.house_whole_sign]}`);
+    const h12occ = Object.keys(planets).filter((nm) => planets[nm]?.house_whole_sign === 12 && planetTheme(nm)).map((nm) => planetTheme(nm));
+    if (h12occ.length)
+      facts.push(`sitting inside the part of life about retreat, rest, and quiet recovery are forces of ${h12occ.join("; ")} — these colour your sleep and inner steadiness`);
+
+    const d8 = v.divisional_charts?.D8;
+    if (d8?.available && d8.planets && d8.lagna_sign) {
+      const d8lord = _SIGN_LORD[d8.lagna_sign];
+      const d8lordSign = d8.planets[d8lord];
+      if (planetTheme(d8lord)) {
+        let clause = `the deep thread of your physical resilience and staying-power rests on ${planetTheme(d8lord)}`;
+        if (d8lordSign && _EXALT[d8lord] === d8lordSign) clause += " — and that thread is unusually robust and well-supported";
+        else if (d8lordSign && _DEBIL[d8lord] === d8lordSign) clause += " — though that thread is strained and needs conscious, patient care";
+        facts.push(clause);
+      }
+      const d8weak = Object.keys(d8.planets).filter((nm) => _DEBIL[nm] === d8.planets[nm] && planetTheme(nm)).map((nm) => planetTheme(nm));
+      if (d8weak.length)
+        facts.push(`in this deep layer of physical endurance, ${d8weak.join("; ")} run weak and ask for the most careful tending`);
+    }
+
+    const d27 = v.divisional_charts?.D27;
+    if (d27?.available && d27.lagna_sign) {
+      const d27lord = _SIGN_LORD[d27.lagna_sign];
+      if (planetTheme(d27lord))
+        facts.push(`your underlying constitution carries the quality of ${planetTheme(d27lord)} — this is the baseline grain your physical strength and weak points are cut from`);
+    }
+  }
+
+  // Life-Purpose-specific (spec 7.5) — the Atmakaraka (soul significator), the
+  // Karakamsha (PRIMARY Jaimini life-purpose indicator), the vargottama soul-dharma
+  // signal, the D20 (dharma) lagna lord, and the live Narayana period sign.
+  if (category === "purpose") {
+    const ak = v.chara_karakas?.AK;
+    if (ak?.planet && planetTheme(ak.planet)) {
+      const akp = planets[ak.planet];
+      facts.push(
+        `the deepest driver of your life's work carries the quality of ${planetTheme(ak.planet)}${_lordStrengthPhrase(v, ak.planet)}` +
+        (akp && typeof akp.house_whole_sign === "number" ? `, and it operates through the part of life about ${_HOUSE_LIFE[akp.house_whole_sign]}` : "")
+      );
+    }
+    if (ak?.karakamsha_sign && _SIGNS.includes(ak.karakamsha_sign)) {
+      const kLord = _SIGN_LORD[ak.karakamsha_sign];
+      if (planetTheme(kLord))
+        facts.push(`the soul-level signature of your purpose takes the shape of ${planetTheme(kLord)}`);
+    }
+    if (v.divisional_charts?.D9?.lagna_sign && v.divisional_charts.D9.lagna_sign === lagnaSign)
+      facts.push(`your outer life and your inner essence point the same direction — a rare alignment of who you are and why you're here`);
+    const d20 = v.divisional_charts?.D20;
+    if (d20?.available && d20.lagna_sign && _SIGNS.includes(d20.lagna_sign)) {
+      const d20Lord = _SIGN_LORD[d20.lagna_sign];
+      if (planetTheme(d20Lord)) {
+        const d20Sign = d20.planets?.[d20Lord];
+        const strength =
+          d20Sign && _EXALT[d20Lord] === d20Sign ? ", and that thread runs unusually strong here"
+          : d20Sign && _DEBIL[d20Lord] === d20Sign ? ", though that thread is under strain and asks for conscious tending"
+          : "";
+        facts.push(`the dharma, the spiritual thread underneath, runs on ${planetTheme(d20Lord)}${strength}`);
+      }
+    }
+    const nd = v.narayana_dasha?.d1;
+    if (Array.isArray(nd)) {
+      const todayISO = new Date().toISOString().slice(0, 10);
+      const active = nd.find((p: any) => p?.start <= todayISO && todayISO < p?.end);
+      const ndLord = active?.sign_lord;
+      if (ndLord && planetTheme(ndLord))
+        facts.push(`the chapter of purpose you're living right now is themed around ${planetTheme(ndLord)}`);
     }
   }
 

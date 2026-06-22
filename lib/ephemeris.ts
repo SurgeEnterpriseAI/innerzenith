@@ -280,7 +280,7 @@ const _YOGA_PLAIN: Record<string, string> = {
 const _TOPIC_YOGA_AREAS: Record<string, string[]> = {
   career: ["character", "reputation", "power/status", "wealth", "rise through adversity", "wisdom/respect"],
   money: ["wealth", "power/status", "reputation"],
-  relationships: ["character", "marriage", "relationship", "wisdom/respect"],
+  relationships: ["character", "marriage", "relationship", "wisdom/respect", "transformation"],
   property: ["wealth", "home", "power/status"],
   health: ["character", "transformation"],
   purpose: ["character", "wisdom/respect", "reputation", "rise through adversity"],
@@ -330,6 +330,28 @@ export function categoryContext(profile: any, category?: string | null, today?: 
     facts.push(`the way your ${spec.area} actually appears to others takes the shape of ${_HOUSE_LIFE[ah]}`);
   }
 
+  // Relationships-specific (spec 7.5) — the spouse-significator (Darakaraka) and
+  // the marriage arudha (Upapada Lagna). Both mandatory, neither captured by the
+  // generic house/arudha logic above; their absence made love readings feel generic.
+  if (category === "relationships") {
+    const dk = v.chara_karakas?.DK?.planet;
+    if (dk && planets[dk] && planetTheme(dk)) {
+      const dh = planets[dk].house_whole_sign;
+      facts.push(
+        `the person who becomes a true partner tends to carry the quality of ${planetTheme(dk)}${_lordStrengthPhrase(v, dk)}` +
+        (typeof dh === "number" ? `, and they tend to enter through the part of life about ${_HOUSE_LIFE[dh]}` : "")
+      );
+    }
+    const ul = v.arudha_padas?.UL;
+    if (ul && _SIGNS.includes(ul)) {
+      const ulLord = _SIGN_LORD[ul];
+      facts.push(
+        `the shape a committed, lasting bond actually takes for you shows up through ${_HOUSE_LIFE[houseOf(ul)]}` +
+        (planetTheme(ulLord) ? `, carried by ${planetTheme(ulLord)}${_lordStrengthPhrase(v, ulLord)}` : "")
+      );
+    }
+  }
+
   // Divisional fine-grain (e.g. D6 for Health): the varga's own rising-force
   // dignity, who sits in the topic-house of the varga, and any varga planet at
   // an extreme of strength (spec 7.5 "D6 Lagna lord dignity / H6 occupants /
@@ -339,6 +361,10 @@ export function categoryContext(profile: any, category?: string | null, today?: 
     const vLagnaIdx = _SIGNS.indexOf(varga.lagna_sign);
     const vLord = _SIGN_LORD[varga.lagna_sign];
     const vlSign = varga.planets[vLord];
+    // The divisional Lagna lord itself — the underlying texture the whole area
+    // rests on (spec 7.5: "D9 Lagna sign and lord" for Relationships/Purpose).
+    if (planetTheme(vLord))
+      facts.push(`the deeper, underlying texture of your ${spec.area} rests on ${planetTheme(vLord)}${_lordStrengthPhrase(v, vLord)}`);
     if (vlSign && _DEBIL[vLord] === vlSign)
       facts.push(`in the deep grain of your ${spec.area}, the core thread is under strain and has to work harder`);
     else if (vlSign && _EXALT[vLord] === vlSign)
@@ -382,7 +408,7 @@ export function categoryContext(profile: any, category?: string | null, today?: 
   }
 
   if (!facts.length) return "";
-  return `\n\n--- THIS TOPIC IN THE CHART (plain meaning only — NEVER name a house, sign, planet, or technique; weave these as specific observations, not a list) ---\n` +
+  return `\n\n--- THIS TOPIC IN THE CHART — *LEAD THE READING WITH THESE*. These are the loudest, most specific signals for this exact topic; the broader personality/temperament/period context above is BACKGROUND to weave in, never the opening. Open on the single sharpest item here, not on a general personality description. Plain meaning only — NEVER name a house, sign, planet, or technique; weave as specific observations, not a list. ---\n` +
     facts.map((f) => "  - " + f).join("\n") + "\n";
 }
 

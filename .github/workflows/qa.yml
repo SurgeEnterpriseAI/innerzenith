@@ -28,6 +28,8 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - name: Injection-completeness (deterministic — spec 7.5 mandatory fields reach the AI)
+        run: npx --yes tsx verify/injection.ts
       - name: Run batch QA
         run: npx --yes tsx verify/batch.ts
         env:

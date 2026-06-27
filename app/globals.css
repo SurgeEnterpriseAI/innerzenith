@@ -28,10 +28,17 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Cormorant Garamond italic — identity, page/screen headings, reflective lines. */
+/* Cormorant Garamond italic — identity, page headings, reflective lines. */
 .font-serif-i {
   font-family: 'Cormorant Garamond', Georgia, serif;
   font-style: italic;
+}
+
+/* Cormorant Garamond Regular — top-bar screen titles (spec 13.2 weight rule).
+   A dedicated class so it is never overridden by .font-serif-i's italic. */
+.font-serif-r {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-style: normal;
 }
 
 /* Body prose — Inter Light 300, 15px, line-height 1.9, #FFFFFF (spec 13.2/13.7). */

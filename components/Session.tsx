@@ -201,7 +201,7 @@ export default function Session({
         >
           ‹
         </button>
-        <h1 className="font-serif-i text-[18px] not-italic">{title}</h1>
+        <h1 className="font-serif-r text-[18px]">{title}</h1>
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 pb-8">

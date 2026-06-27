@@ -8,11 +8,10 @@ import { useEffect, useRef, useState } from "react";
 import { Profile } from "@/lib/profile";
 import { stripMarkdown } from "@/lib/text";
 import { getTodaySurprise, saveTodaySurprise } from "@/lib/surprise";
-import { resolveGlyph, stripLeadingGlyph } from "@/lib/symbols";
+import { resolveGlyph, stripLeadingGlyph, symbolSrc } from "@/lib/symbols";
 import { languageByCode } from "@/lib/languages";
 import { useT } from "@/lib/i18n";
 import ReadAloud from "./ReadAloud";
-import SymbolGlyph from "./SymbolGlyph";
 
 export default function SurpriseMe({
   profile,
@@ -81,26 +80,27 @@ export default function SurpriseMe({
   }
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-[#2b2b2b] text-white">
+    <div className="flex flex-col h-[100dvh] bg-[#0D0D0D] text-white">
       <header className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
         <button onClick={onBack} className="text-[#b3b3b3] hover:text-white text-lg leading-none px-1">‹</button>
         <h1 className="font-serif-i text-base">Surprise Me</h1>
       </header>
 
       <div className="flex-1 overflow-y-auto px-5 py-8">
-        <div className="max-w-2xl mx-auto">
-          {!streaming && text.length > 0 && (
-            <SymbolGlyph keyName={resolveGlyph(text, "surprise")} className="pb-4" />
-          )}
+        <div className="max-w-2xl mx-auto overflow-hidden">
           {welcomeBack && (
             <p className="font-serif-i italic text-sm text-[#b3b3b3] mb-5">
               {t("You've already drawn today's reading — here it is again. A fresh one arrives tomorrow.")}
             </p>
           )}
           {!text && streaming && (
-            <p className="advisor-text text-[#b3b3b3] italic">{t("reading the sky over you today…")}</p>
+            <p className="advisor-text text-[#b3b3b3]">{t("reading the sky over you today…")}</p>
           )}
-          <div className={`advisor-text group ${streaming ? "cursor-blink" : ""}`} dir={rtl ? "rtl" : undefined}>
+          <div className={`advisor-text ${streaming ? "cursor-blink" : ""}`} dir={rtl ? "rtl" : undefined}>
+            {/* one inline illustration in the upper portion; prose wraps left (spec 13.9) */}
+            {!streaming && text.length > 0 && (
+              <img src={symbolSrc(resolveGlyph(text, "surprise"))} alt="" aria-hidden className="reading-glyph" draggable={false} />
+            )}
             {stripMarkdown(stripLeadingGlyph(text)).split(/\n{2,}/).map((p, i) => (
               <p key={i}>{p}</p>
             ))}

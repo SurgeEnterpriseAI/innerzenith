@@ -142,7 +142,7 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
   const s = STEPS[step];
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-[#2b2b2b] text-white px-6 py-8">
+    <div className="min-h-[100dvh] flex flex-col bg-[#0D0D0D] text-white px-6 py-8">
       {/* the forming constellation */}
       <div className="flex justify-center pt-2 pb-6">
         <FormingShape shape={shapeRef.current} litCount={step + 1} />
@@ -238,7 +238,7 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
         <button
           onClick={next}
           disabled={!canAdvance()}
-          className="w-full bg-white text-[#2b2b2b] disabled:bg-[#555] disabled:text-[#999] rounded-full py-3.5 font-medium text-sm transition"
+          className="w-full bg-white text-[#0D0D0D] disabled:bg-[#555] disabled:text-[#999] rounded-full py-3.5 font-medium text-sm transition"
         >
           {step === 6 ? t("Agree") : t("Continue")}
         </button>
@@ -289,7 +289,7 @@ function FormingShape({ shape, litCount }: { shape: { dots: [number, number][] }
 function ConnectingScreen({ shape }: { shape: { dots: [number, number][] } }) {
   const { t } = useT();
   return (
-    <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[#2b2b2b] text-white">
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[#0D0D0D] text-white">
       <FormingShape shape={shape} litCount={shape.dots.length} />
       <p className="font-serif-i text-lg mt-8 text-[#d4d4d4]">{t("Connecting your dots.")}</p>
     </div>

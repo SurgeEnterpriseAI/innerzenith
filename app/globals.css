@@ -1,15 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Inter:wght@300;400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  /* dotit salt-and-pepper palette (spec 7.1a) */
-  --bg: #2b2b2b;          /* near-black canvas */
-  --text: #ffffff;        /* primary text + dots */
-  --secondary: #d4d4d4;   /* secondary text + labels */
-  --faded: #b3b3b3;       /* faded / inactive */
+  /* dotit palette — spec 13.1. Four values only; pure neutral black, no cast. */
+  --bg: #0D0D0D;          /* every screen, no exception */
+  --text: #ffffff;        /* headings, body prose, active nav, send icons */
+  --secondary: #d4d4d4;   /* section headers, dividers, back arrows, underlines */
+  --faded: #b3b3b3;       /* placeholders, captions, hints, inactive nav */
   color-scheme: dark;
 }
 
@@ -20,27 +20,66 @@ html, body {
   overscroll-behavior: none;
 }
 
+/* Inter Light is the functional default (spec 13.2). */
 body {
   font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 300;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/* serif italic for the name + reflective lines */
+/* Cormorant Garamond italic — identity, page/screen headings, reflective lines. */
 .font-serif-i {
-  font-family: 'Lora', Georgia, serif;
+  font-family: 'Cormorant Garamond', Georgia, serif;
   font-style: italic;
 }
 
-/* flowing advisor prose */
+/* Body prose — Inter Light 300, 15px, line-height 1.9, #FFFFFF (spec 13.2/13.7). */
 .advisor-text {
-  font-family: 'Lora', Georgia, serif;
-  font-size: 1.0625rem;
-  line-height: 1.78;
-  letter-spacing: 0.004em;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 300;
+  font-size: 15px;
+  line-height: 1.9;
   color: var(--text);
 }
-.advisor-text p + p { margin-top: 1rem; }
+.advisor-text p + p { margin-top: 1.1rem; }
+
+/* Section header — Cormorant Garamond Italic Uppercase 11px, letter-spacing 2px,
+   #D4D4D4 (spec 13.7). */
+.section-header {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-style: italic;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--secondary);
+  line-height: 1.5;
+}
+
+/* Full-width divider at 30% opacity (spec 13.1). */
+.reading-divider {
+  border: 0;
+  border-top: 1px solid rgba(212, 212, 212, 0.3);
+}
+
+/* Inline reading illustration — float right ~140px, text wraps to its left
+   (spec 13.4). Transparent PNG on the black screen; full opacity. */
+.reading-glyph {
+  float: right;
+  width: 140px;
+  height: 140px;
+  object-fit: contain;
+  margin: 0 0 14px 18px;
+  shape-outside: circle(50%);
+}
+
+/* Input underline only — no border, outline, or fill (spec 13.3). 40% opacity. */
+.input-underline {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(212, 212, 212, 0.4);
+  outline: none;
+}
 
 /* streaming cursor */
 .cursor-blink::after {
@@ -81,8 +120,8 @@ body {
 /* scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #444; border-radius: 6px; }
-::-webkit-scrollbar-thumb:hover { background: #555; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #444; }
 
 textarea { resize: none; }
 

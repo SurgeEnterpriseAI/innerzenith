@@ -82,14 +82,14 @@ export default function ProfileEdit({
 
   if (saving) {
     return (
-      <div className="min-h-[100dvh] bg-[#2b2b2b] text-white flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-[#0D0D0D] text-white flex items-center justify-center">
         <p className="font-serif-i text-[#d4d4d4]">{t("Reconnecting your dots…")}</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#2b2b2b] text-white px-6 py-10 pb-28">
+    <div className="min-h-[100dvh] bg-[#0D0D0D] text-white px-6 py-10 pb-28">
       <div className="max-w-md mx-auto">
         <button onClick={onCancel} className="text-[#b3b3b3] hover:text-white text-sm mb-4">‹ {t("back")}</button>
         <h1 className="font-serif-i text-2xl mb-2">{t("Edit birth details")}</h1>
@@ -122,7 +122,7 @@ export default function ProfileEdit({
         <CityPicker value={birthCity} onPick={setBirthCity} />
 
         <button onClick={save}
-          className="w-full mt-8 bg-white text-[#2b2b2b] rounded-full py-3.5 font-medium text-sm">
+          className="w-full mt-8 bg-white text-[#0D0D0D] rounded-full py-3.5 font-medium text-sm">
           {t("Save and recalculate")}
         </button>
       </div>

@@ -88,7 +88,7 @@ export default function Page() {
   let content: React.ReactNode;
 
   if (!ready) {
-    content = <div className="min-h-[100dvh] bg-[#2b2b2b]" />;
+    content = <div className="min-h-[100dvh] bg-[#0D0D0D]" />;
   } else if (!profile || !profile.onboarding_complete) {
     // Onboarding gate
     content = (

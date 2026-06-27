@@ -1,7 +1,9 @@
 "use client";
 
-// A conversation screen. Handles natal categories AND Ask Now.
-// First-time topics open broad+deep; returning topics open "Welcome back".
+// A conversation screen (spec 13.7/13.8). Handles natal categories AND Ask Now.
+// First-visit category readings render in four labelled sections with a single
+// inline illustration floated between the first two; return visits and follow-ups
+// render as flowing prose. No bubbles, no cards — text sits on the black canvas.
 
 import { useEffect, useRef, useState } from "react";
 import { Profile } from "@/lib/profile";
@@ -14,11 +16,21 @@ import {
   topicSeen,
 } from "@/lib/sessions";
 import { stripMarkdown } from "@/lib/text";
-import { resolveGlyph, stripLeadingGlyph } from "@/lib/symbols";
+import { resolveGlyph, stripLeadingGlyph, symbolSrc } from "@/lib/symbols";
 import { languageByCode } from "@/lib/languages";
 import { useT } from "@/lib/i18n";
 import ReadAloud from "./ReadAloud";
-import SymbolGlyph from "./SymbolGlyph";
+
+// The four first-visit section labels (spec 11.3 / 13.7). Matched case-insensitively
+// so the producer's plain-text labels render as styled section headers.
+const SECTION_LABELS = [
+  "the picture so far",
+  "where your dots sit now",
+  "the line forming",
+  "your next dot",
+];
+const isSectionHeader = (s: string) =>
+  SECTION_LABELS.includes(s.trim().toLowerCase().replace(/[.:]+$/, ""));
 
 export default function Session({
   profile,
@@ -143,9 +155,10 @@ export default function Session({
         acc += dec.decode(value, { stream: true });
         setBuffer(acc);
       }
-      // Crown the session with its glyph on the opening reading (the producer
-      // named one via a leading control line; theme-fallback if it didn't).
-      if (opts?.hideOpening && !symbolRef.current) {
+      // The opening reading carries the session's inline glyph (the producer named
+      // one via a leading control line; theme-fallback if it didn't). Ask Now
+      // responses carry no illustration (spec 13.11).
+      if (opts?.hideOpening && !isAskNow && !symbolRef.current) {
         const g = resolveGlyph(acc, category);
         symbolRef.current = g;
         setSymbol(g);
@@ -171,38 +184,54 @@ export default function Session({
     void stream(next);
   }
 
-  // The glyph to show: the session's stored one, else derived from the opening
-  // reading so sessions created before this feature still get a fitting symbol.
-  const firstAssistant = messages.find((m) => m.role === "assistant")?.content;
-  const displaySymbol = symbol ?? (firstAssistant ? resolveGlyph(firstAssistant, category) : null);
+  // Glyph + structured layout apply only to the first-visit category reading
+  // (the first assistant message), never Ask Now or follow-ups.
+  const firstAssistantIdx = messages.findIndex((m) => m.role === "assistant");
+  const displaySymbol =
+    symbol ?? (firstAssistantIdx >= 0 ? resolveGlyph(messages[firstAssistantIdx].content, category) : null);
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-[#2b2b2b] text-white">
-      <header className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
-        <button onClick={onBack} className="text-[#b3b3b3] hover:text-white text-lg leading-none px-1">‹</button>
-        <h1 className="font-serif-i text-base">{title}</h1>
+    <div className="flex flex-col h-[100dvh] bg-[#0D0D0D] text-white">
+      {/* top bar — back arrow + centred Cormorant title (spec 13.7) */}
+      <header className="relative flex items-center justify-center px-6 py-4 shrink-0">
+        <button
+          onClick={onBack}
+          aria-label={t("Back")}
+          className="absolute left-5 text-[#d4d4d4] hover:text-white text-2xl leading-none"
+        >
+          ‹
+        </button>
+        <h1 className="font-serif-i text-[18px] not-italic">{title}</h1>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-6">
-        <div className="max-w-2xl mx-auto space-y-6">
-          <SymbolGlyph keyName={displaySymbol} className="pt-1 pb-1" />
-          {!isAskNow && (
-            <p className="font-serif-i text-xs text-[#b3b3b3] italic text-center">
-              For a question that has come to you on its own — try Ask Now.
-            </p>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 pb-8">
+        <div className="max-w-2xl mx-auto pt-2">
+          {messages.map((m, i) =>
+            m.role === "user" ? (
+              <FollowUp key={i} text={m.content} />
+            ) : (
+              <Reading
+                key={i}
+                text={m.content}
+                lang={lang}
+                rtl={rtl}
+                structured={!isAskNow && i === firstAssistantIdx}
+                glyph={!isAskNow && i === firstAssistantIdx ? displaySymbol : null}
+              />
+            )
           )}
-          {messages.map((m, i) => (
-            <Bubble key={i} role={m.role} content={m.content} lang={lang} rtl={rtl} />
-          ))}
-          {streaming && buffer && <Bubble role="assistant" content={stripLeadingGlyph(buffer)} streaming lang={lang} rtl={rtl} />}
+          {streaming && buffer && (
+            <Reading text={stripLeadingGlyph(buffer)} lang={lang} rtl={rtl} structured={false} glyph={null} streaming />
+          )}
           {streaming && !buffer && (
-            <p className="advisor-text text-[#b3b3b3] italic">reading your dots…</p>
+            <p className="advisor-text text-[#b3b3b3]">{t("reading your dots…")}</p>
           )}
         </div>
       </div>
 
-      <div className="border-t border-white/10 px-4 py-4">
-        <div className="max-w-2xl mx-auto flex items-end gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5 focus-within:border-white/30 transition">
+      {/* sticky underline input — single #D4D4D4 top line, no pill (spec 13.7) */}
+      <div className="shrink-0 px-6 pt-3 pb-4 border-t border-[#d4d4d4]/30">
+        <div className="max-w-2xl mx-auto flex items-end gap-3">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -213,16 +242,17 @@ export default function Session({
               }
             }}
             rows={1}
-            placeholder={isAskNow ? t("your one specific question") : t("share what's true for you")}
+            placeholder={t("Share what's true to you.")}
             disabled={streaming}
-            className="flex-1 bg-transparent outline-none text-[15px] py-1.5 disabled:opacity-50"
+            className="flex-1 bg-transparent outline-none text-[13px] font-light text-white placeholder:text-[#b3b3b3] py-1.5 disabled:opacity-50"
           />
           <button
             onClick={send}
             disabled={streaming || !input.trim()}
-            className="text-[#2b2b2b] bg-white disabled:opacity-30 rounded-lg px-3.5 py-1.5 text-sm transition"
+            aria-label={t("Send")}
+            className="text-white disabled:opacity-30 pb-1.5 transition"
           >
-            send
+            <SendArrow />
           </button>
         </div>
       </div>
@@ -230,24 +260,78 @@ export default function Session({
   );
 }
 
-function Bubble({ role, content, streaming, lang, rtl }: { role: "user" | "assistant"; content: string; streaming?: boolean; lang?: string | null; rtl?: boolean }) {
-  if (role === "user") {
+/** A reading: structured four-section layout (first visit) or flowing prose. */
+function Reading({
+  text,
+  lang,
+  rtl,
+  structured,
+  glyph,
+  streaming,
+}: {
+  text: string;
+  lang?: string | null;
+  rtl?: boolean;
+  structured: boolean;
+  glyph: string | null;
+  streaming?: boolean;
+}) {
+  const clean = stripMarkdown(text);
+
+  if (!structured) {
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[82%] bg-white/10 border border-white/10 rounded-2xl rounded-tr-md px-4 py-2.5 text-[15px] leading-relaxed">
-          {content}
-        </div>
+      <div className={`advisor-text ${streaming ? "cursor-blink" : ""}`} dir={rtl ? "rtl" : undefined}>
+        {clean.split(/\n{2,}/).map((p, i) => (
+          <p key={i}>{p}</p>
+        ))}
+        {!streaming && clean.length > 0 && <ReadAloud text={clean} lang={lang} />}
       </div>
     );
   }
-  const clean = stripMarkdown(stripLeadingGlyph(content));
+
+  // Parse into sections by the four labels; glyph floats into the second section.
+  const blocks = clean.split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
+  const sections: { header: string | null; paras: string[] }[] = [];
+  for (const b of blocks) {
+    if (isSectionHeader(b)) sections.push({ header: b, paras: [] });
+    else if (sections.length) sections[sections.length - 1].paras.push(b);
+    else sections.push({ header: null, paras: [b] });
+  }
+
   return (
-    <div className={`advisor-text group ${streaming ? "cursor-blink" : ""}`} dir={rtl ? "rtl" : undefined}>
-      {clean.split(/\n{2,}/).map((p, i) => (
-        <p key={i}>{p}</p>
+    <div className="advisor-text" dir={rtl ? "rtl" : undefined}>
+      {sections.map((sec, si) => (
+        <div key={si} className="overflow-hidden">
+          {sec.header && <div className="section-header mb-3">{sec.header}</div>}
+          {glyph && si === 1 && (
+            <img src={symbolSrc(glyph)} alt="" aria-hidden className="reading-glyph" draggable={false} />
+          )}
+          {sec.paras.map((p, pi) => (
+            <p key={pi}>{p}</p>
+          ))}
+          {si < sections.length - 1 && <hr className="reading-divider clear-both my-7" />}
+        </div>
       ))}
-      {!streaming && clean.length > 0 && <ReadAloud text={clean} lang={lang} />}
+      <ReadAloud text={clean} lang={lang} />
     </div>
   );
 }
 
+/** A user follow-up: a thin divider then a single full-width italic line (spec 13.8). */
+function FollowUp({ text }: { text: string }) {
+  return (
+    <div className="mt-8">
+      <hr className="reading-divider mb-4" />
+      <p className="font-light italic text-[15px] text-[#b3b3b3]">{text}</p>
+    </div>
+  );
+}
+
+function SendArrow() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <line x1="12" y1="19" x2="12" y2="5" />
+      <polyline points="6 11 12 5 18 11" />
+    </svg>
+  );
+}

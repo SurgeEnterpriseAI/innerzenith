@@ -6,9 +6,7 @@
 import { useMemo, useState } from "react";
 import { loadSessions, deleteSession, Session } from "@/lib/sessions";
 import { categoryByKey } from "@/lib/categories";
-import { resolveGlyph } from "@/lib/symbols";
 import { useT } from "@/lib/i18n";
-import SymbolGlyph from "./SymbolGlyph";
 
 export default function History({ onOpen }: { onOpen: (s: Session) => void }) {
   const { t } = useT();
@@ -26,7 +24,7 @@ export default function History({ onOpen }: { onOpen: (s: Session) => void }) {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#2b2b2b] text-white px-6 py-10 pb-28">
+    <div className="min-h-[100dvh] bg-[#0D0D0D] text-white px-6 py-10 pb-28">
       <div className="max-w-md mx-auto">
         <h1 className="font-serif-i text-2xl mb-5">{t("History")}</h1>
         <input
@@ -41,16 +39,14 @@ export default function History({ onOpen }: { onOpen: (s: Session) => void }) {
         <ul className="space-y-1">
           {filtered.map((s) => {
             const short = s.isAskNow ? t("ASK NOW") : categoryByKey(s.category)?.short ?? "";
-            const sym = s.symbol ?? resolveGlyph(s.messages.find((m) => m.role === "assistant")?.content || "", s.category);
             return (
-              <li key={s.id} className="flex items-center gap-2 border-b border-white/8">
+              <li key={s.id} className="flex items-center gap-2 border-b border-[#d4d4d4]/20">
                 <button
                   onClick={() => onOpen(s)}
                   className="flex-1 text-left py-3 flex items-center gap-3 hover:bg-white/[0.03] transition"
                 >
-                  <SymbolGlyph keyName={sym} size={30} className="w-8 shrink-0" />
-                  <span className="micro-label w-16 shrink-0">{short}</span>
-                  <span className="text-sm text-[#d4d4d4] truncate">{s.keyword}</span>
+                  <span className="micro-label text-[#d4d4d4] w-16 shrink-0">{short}</span>
+                  <span className="text-[13px] font-light text-white truncate">{s.keyword}</span>
                 </button>
                 <button
                   onClick={() => remove(s.id)}

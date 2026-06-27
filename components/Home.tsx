@@ -38,7 +38,7 @@ export default function Home({
   const surprise = CATEGORIES.find((c) => c.key === "surprise")!;
 
   return (
-    <div className="h-[100dvh] bg-[#2b2b2b] text-white flex flex-col overflow-hidden pb-20">
+    <div className="h-[100dvh] bg-[#0D0D0D] text-white flex flex-col overflow-hidden pb-20">
       {/* greeting */}
       <div className="px-6 pt-8 shrink-0">
         <div className="flex items-start justify-between">

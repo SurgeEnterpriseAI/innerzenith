@@ -47,14 +47,14 @@ export default function BottomNav({
     { key: "profile", label: t("Profile"), icon: <UserIcon /> },
   ];
   return (
-    <nav className="fixed bottom-0 inset-x-0 bg-[#2b2b2b]/95 backdrop-blur border-t border-white/10 z-20">
+    <nav className="fixed bottom-0 inset-x-0 bg-[#0D0D0D]/95 backdrop-blur border-t border-white/10 z-20">
       <div className="max-w-md mx-auto flex relative">
         {showCoach && active === "home" && (
           <div className="absolute z-30 inset-x-3" style={{ bottom: "calc(100% + 10px)" }}>
             <button
               onClick={dismissCoach}
               aria-label={t("Got it")}
-              className="relative block w-full text-left bg-white text-[#2b2b2b] rounded-2xl px-4 py-3 shadow-xl"
+              className="relative block w-full text-left bg-white text-[#0D0D0D] rounded-2xl px-4 py-3 shadow-xl"
             >
               <p className="text-[10px] uppercase tracking-wider text-[#888] mb-1">{t("New here?")}</p>
               <p className="text-[13px] leading-snug">

@@ -83,7 +83,7 @@ export default function ProfileView({
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#2b2b2b] text-white px-6 py-10 pb-28">
+    <div className="min-h-[100dvh] bg-[#0D0D0D] text-white px-6 py-10 pb-28">
       <div className="max-w-md mx-auto">
         <h1 className="font-serif-i text-2xl mb-6">{t("Profile")}</h1>
 
@@ -98,10 +98,10 @@ export default function ProfileView({
           <select
             value={lang}
             onChange={(e) => changeLang(e.target.value)}
-            className="w-full bg-[#2b2b2b] border border-white/20 focus:border-white/40 rounded-full px-4 py-3 text-sm outline-none transition appearance-none cursor-pointer"
+            className="w-full bg-[#0D0D0D] border border-white/20 focus:border-white/40 rounded-full px-4 py-3 text-sm outline-none transition appearance-none cursor-pointer"
           >
             {LANGUAGES.map((l) => (
-              <option key={l.code} value={l.code} className="bg-[#2b2b2b]">
+              <option key={l.code} value={l.code} className="bg-[#0D0D0D]">
                 {l.native === l.name ? l.name : `${l.native} — ${l.name}`}
               </option>
             ))}

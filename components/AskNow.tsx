@@ -12,7 +12,6 @@ import { extractGlyphKey, stripLeadingGlyph } from "@/lib/symbols";
 import { languageByCode } from "@/lib/languages";
 import { useT } from "@/lib/i18n";
 import ReadAloud from "./ReadAloud";
-import SymbolGlyph from "./SymbolGlyph";
 
 const OPENING = `Ask Now answers one specific question at a time.
 
@@ -37,7 +36,6 @@ export default function AskNow({ profile }: { profile: Profile }) {
   const [streaming, setStreaming] = useState(false);
   const [buffer, setBuffer] = useState("");
   const [showHint, setShowHint] = useState(true);
-  const [symbol, setSymbol] = useState<string | null>(null);
   const sessionRef = useRef<Sess | null>(null);
   const symbolRef = useRef<string | null>(null);
   // Frozen resolved Ask Now inputs (moment/city/question) — set from the server's
@@ -112,10 +110,7 @@ export default function AskNow({ profile }: { profile: Profile }) {
       // A real answer (not a "missing piece" prompt) carries a glyph control
       // line — crown the session the first time one arrives.
       const key = extractGlyphKey(acc);
-      if (key && !symbolRef.current) {
-        symbolRef.current = key;
-        setSymbol(key);
-      }
+      if (key && !symbolRef.current) symbolRef.current = key;
       const final = [...next, { role: "assistant" as const, content: stripLeadingGlyph(acc) }];
       setMessages(final);
       setBuffer("");
@@ -128,14 +123,13 @@ export default function AskNow({ profile }: { profile: Profile }) {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#2b2b2b] text-white flex flex-col pb-20">
+    <div className="min-h-[100dvh] bg-[#0D0D0D] text-white flex flex-col pb-20">
       <header className="px-6 pt-8 pb-3">
         <h1 className="font-serif-i text-2xl">Ask Now</h1>
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 pb-4">
         <div className="max-w-2xl mx-auto space-y-5">
-          <SymbolGlyph keyName={symbol} className="pt-1 pb-1" />
           {messages.map((m, i) =>
             m.role === "user" ? (
               <div key={i} className="flex justify-end">
@@ -193,8 +187,8 @@ export default function AskNow({ profile }: { profile: Profile }) {
         </div>
       )}
 
-      <div className="px-4 pb-3">
-        <div className="max-w-2xl mx-auto flex items-end gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5 focus-within:border-white/30 transition">
+      <div className="px-6 pt-3 pb-4 border-t border-[#d4d4d4]/30">
+        <div className="max-w-2xl mx-auto flex items-end gap-3">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -205,16 +199,20 @@ export default function AskNow({ profile }: { profile: Profile }) {
               }
             }}
             rows={1}
-            placeholder={t("your question, the moment it arrived, and the city")}
+            placeholder={t("Share what's true to you.")}
             disabled={streaming}
-            className="flex-1 bg-transparent outline-none text-[15px] py-1.5 disabled:opacity-50"
+            className="flex-1 bg-transparent outline-none text-[13px] font-light text-white placeholder:text-[#b3b3b3] py-1.5 disabled:opacity-50"
           />
           <button
             onClick={send}
             disabled={streaming || !input.trim()}
-            className="text-[#2b2b2b] bg-white disabled:opacity-30 rounded-lg px-3.5 py-1.5 text-sm transition"
+            aria-label={t("Send")}
+            className="text-white disabled:opacity-30 pb-1.5 transition"
           >
-            send
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <line x1="12" y1="19" x2="12" y2="5" />
+              <polyline points="6 11 12 5 18 11" />
+            </svg>
           </button>
         </div>
       </div>

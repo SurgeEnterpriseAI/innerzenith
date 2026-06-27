@@ -151,8 +151,8 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
       <p className="micro-label text-center">{t("Dot {n} of 7", { n: s.n })}{s.n === 5 ? t(" — optional") : ""}</p>
 
       <div className="flex-1 flex flex-col justify-center max-w-md w-full mx-auto fade-up" key={step}>
-        <h2 className="font-serif-i text-2xl leading-snug mb-2">{t(s.title)}</h2>
-        <p className="text-[#b3b3b3] text-sm mb-8">{t(s.sub)}</p>
+        <h2 className="font-serif-i text-[22px] leading-snug mb-2 text-white">{t(s.title)}</h2>
+        <p className="text-[#b3b3b3] text-sm font-light mb-8">{t(s.sub)}</p>
 
         {step === 0 && (
           <input
@@ -161,7 +161,7 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && next()}
             placeholder={t("your first name")}
-            className="bg-transparent border-b border-[#b3b3b3]/40 focus:border-white outline-none text-xl py-2 font-serif-i"
+            className="input-underline text-[15px] font-light py-2 text-white placeholder:text-[#b3b3b3]"
           />
         )}
 
@@ -175,7 +175,7 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
             type="date"
             value={birthDate}
             onChange={(e) => setBirthDate(e.target.value)}
-            className="bg-transparent border-b border-[#b3b3b3]/40 focus:border-white outline-none text-xl py-2 [color-scheme:dark]"
+            className="input-underline text-[15px] font-light py-2 text-white [color-scheme:dark]"
           />
         )}
 
@@ -218,8 +218,12 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
 
         {step === 6 && (
           <div className="space-y-4">
-            <p className="text-[#d4d4d4] text-sm leading-relaxed">
-              {t("By continuing you agree to our Terms of Use and Privacy Policy. Your personal data is used only to personalise your insight.")}
+            <p className="text-[#d4d4d4] text-sm font-light leading-relaxed">
+              {t("By continuing you agree to our")}{" "}
+              <a href="/terms" className="text-white underline decoration-[#d4d4d4]/40 underline-offset-4">{t("Terms of Use")}</a>{" "}
+              {t("and")}{" "}
+              <a href="/privacy" className="text-white underline decoration-[#d4d4d4]/40 underline-offset-4">{t("Privacy Policy")}</a>.{" "}
+              {t("Your personal data is used only to personalise your insight.")}
             </p>
             <label className="flex items-start gap-3 cursor-pointer">
               <input
@@ -228,28 +232,30 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
                 onChange={(e) => setAgreed(e.target.checked)}
                 className="mt-1 accent-white w-4 h-4"
               />
-              <span className="text-sm font-serif-i">{t("I agree and I'm ready to see my picture.")}</span>
+              <span className="text-sm font-serif-i text-white">{t("I agree and I'm ready to see my picture.")}</span>
             </label>
           </div>
         )}
       </div>
 
-      <div className="max-w-md w-full mx-auto pt-6">
-        <button
-          onClick={next}
-          disabled={!canAdvance()}
-          className="w-full bg-white text-[#0D0D0D] disabled:bg-[#555] disabled:text-[#999] rounded-full py-3.5 font-medium text-sm transition"
-        >
-          {step === 6 ? t("Agree") : t("Continue")}
-        </button>
-        {step > 0 && (
+      <div className="max-w-md w-full mx-auto pt-6 flex items-center justify-between">
+        {step > 0 ? (
           <button
             onClick={() => setStep(step - 1)}
-            className="w-full text-[#b3b3b3] text-xs mt-3 py-1"
+            className="text-[#b3b3b3] text-xs font-light py-1"
           >
             {t("back")}
           </button>
+        ) : (
+          <span />
         )}
+        <button
+          onClick={next}
+          disabled={!canAdvance()}
+          className="font-serif-i text-[16px] text-[#d4d4d4] disabled:text-[#b3b3b3]/40 py-1 transition"
+        >
+          {step === 6 ? t("Agree") : t("Continue")}
+        </button>
       </div>
     </div>
   );
@@ -277,7 +283,7 @@ function FormingShape({ shape, litCount }: { shape: { dots: [number, number][] }
           key={`d${i}`}
           cx={d[0]} cy={d[1]}
           r={1.6}
-          fill={i < litCount ? "#ffffff" : "#555"}
+          fill={i < litCount ? "#ffffff" : "#b3b3b3"}
           className={i < litCount ? "dot-lit" : ""}
           style={i < litCount ? { filter: "drop-shadow(0 0 2px rgba(255,255,255,0.7))" } : undefined}
         />
@@ -291,7 +297,7 @@ function ConnectingScreen({ shape }: { shape: { dots: [number, number][] } }) {
   return (
     <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[#0D0D0D] text-white">
       <FormingShape shape={shape} litCount={shape.dots.length} />
-      <p className="font-serif-i text-lg mt-8 text-[#d4d4d4]">{t("Connecting your dots.")}</p>
+      <p className="font-serif-i text-[20px] mt-12 text-white fade-up">{t("Connecting your dots.")}</p>
     </div>
   );
 }
@@ -300,8 +306,8 @@ function TimeOption({ active, onClick, label }: { active: boolean; onClick: () =
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left px-4 py-3 rounded-xl border text-sm transition ${
-        active ? "border-white bg-white/5" : "border-[#b3b3b3]/30 hover:border-[#b3b3b3]/60"
+      className={`w-full text-left py-2 text-[15px] font-light transition ${
+        active ? "text-white" : "text-[#d4d4d4] hover:text-white"
       }`}
     >
       {label}
@@ -313,8 +319,8 @@ function GenderOption({ active, onClick, label }: { active: boolean; onClick: ()
   return (
     <button
       onClick={onClick}
-      className={`flex-1 py-4 rounded-xl border text-sm transition ${
-        active ? "border-white bg-white/5" : "border-[#b3b3b3]/30 hover:border-[#b3b3b3]/60"
+      className={`flex-1 text-left py-2 text-[15px] font-light transition ${
+        active ? "text-white" : "text-[#d4d4d4] hover:text-white"
       }`}
     >
       {label}
@@ -363,10 +369,10 @@ function CityPicker({
           onPick(null);
         }}
         placeholder={placeholder}
-        className="w-full bg-transparent border-b border-[#b3b3b3]/40 focus:border-white outline-none text-xl py-2 font-serif-i"
+        className="input-underline w-full text-[15px] font-light py-2 text-white placeholder:text-[#b3b3b3]"
       />
       {open && results.length > 0 && !value && (
-        <div className="absolute z-10 left-0 right-0 mt-2 bg-[#1f1f1f] border border-[#444] rounded-xl overflow-hidden">
+        <div className="absolute z-10 left-0 right-0 mt-2 bg-[#0D0D0D] border-t border-[#d4d4d4]/30">
           {results.map((r, i) => (
             <button
               key={i}
@@ -375,7 +381,7 @@ function CityPicker({
                 setQ(r.name);
                 setOpen(false);
               }}
-              className="w-full text-left px-4 py-3 text-sm hover:bg-white/5 border-b border-[#333] last:border-0"
+              className="w-full text-left py-3 text-[15px] font-light text-[#d4d4d4] hover:text-white border-b border-[#d4d4d4]/20 last:border-0"
             >
               {r.name}
             </button>

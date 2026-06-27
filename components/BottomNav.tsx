@@ -47,24 +47,24 @@ export default function BottomNav({
     { key: "profile", label: t("Profile"), icon: <UserIcon /> },
   ];
   return (
-    <nav className="fixed bottom-0 inset-x-0 bg-[#0D0D0D]/95 backdrop-blur border-t border-white/10 z-20">
+    <nav className="fixed bottom-0 inset-x-0 bg-[#0D0D0D] border-t border-[#d4d4d4]/30 z-20">
       <div className="max-w-md mx-auto flex relative">
         {showCoach && active === "home" && (
           <div className="absolute z-30 inset-x-3" style={{ bottom: "calc(100% + 10px)" }}>
             <button
               onClick={dismissCoach}
               aria-label={t("Got it")}
-              className="relative block w-full text-left bg-white text-[#0D0D0D] rounded-2xl px-4 py-3 shadow-xl"
+              className="relative block w-full text-left bg-[#0D0D0D] border border-[#d4d4d4]/30 text-[#d4d4d4] rounded-md px-4 py-3"
             >
-              <p className="text-[10px] uppercase tracking-wider text-[#888] mb-1">{t("New here?")}</p>
-              <p className="text-[13px] leading-snug">
-                {t("Tap")} <span className="font-semibold">{t("Ask Now")}</span>{" "}
+              <p className="text-[10px] uppercase tracking-wider text-[#b3b3b3] mb-1">{t("New here?")}</p>
+              <p className="text-[13px] leading-snug font-light">
+                {t("Tap")} <span className="text-white">{t("Ask Now")}</span>{" "}
                 {t("to ask one spontaneous question — give it the exact time and city the question came to you.")}
               </p>
               {/* arrow pointing down to the Ask Now tab (2nd of 4 → 37.5%) */}
               <span
-                className="absolute w-3.5 h-3.5 bg-white"
-                style={{ bottom: "-6px", left: "37.5%", transform: "translateX(-50%) rotate(45deg)" }}
+                className="absolute w-3.5 h-3.5 bg-[#0D0D0D] border-b border-r border-[#d4d4d4]/30"
+                style={{ bottom: "-7px", left: "37.5%", transform: "translateX(-50%) rotate(45deg)" }}
               />
             </button>
           </div>
@@ -77,13 +77,10 @@ export default function BottomNav({
               onClick={() => handleChange(it.key)}
               className="flex-1 flex flex-col items-center gap-1 py-2.5"
             >
-              <span className="relative" style={{ color: on ? "#fff" : "#b3b3b3" }}>
-                {on && (
-                  <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-white" />
-                )}
+              <span style={{ color: on ? "#fff" : "#b3b3b3" }}>
                 {it.icon}
               </span>
-              <span className="text-[10px]" style={{ color: on ? "#fff" : "#b3b3b3" }}>
+              <span className="text-[11px] font-light" style={{ color: on ? "#fff" : "#b3b3b3" }}>
                 {it.label}
               </span>
             </button>

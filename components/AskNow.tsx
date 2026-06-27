@@ -25,6 +25,10 @@ What's sitting with you?`;
 // parts (question · exact date & time · city) so the format is obvious at a glance.
 const SAMPLE = "Will I get this opportunity? The question came to me on 18 Jun 2026, 9:30 PM, in Mumbai.";
 
+// Disclaimer pinned to the base of every Ask Now response (spec 13.11).
+const DISCLAIMER =
+  "Ask Now reads the moment your question crystallised. It works only when the question arrived on its own — the time and city you were in when it did.";
+
 export default function AskNow({ profile }: { profile: Profile }) {
   const { t } = useT();
   const lang = profile.language ?? null;
@@ -122,66 +126,92 @@ export default function AskNow({ profile }: { profile: Profile }) {
     }
   }
 
+  // The first assistant message is the fixed OPENING — never rendered (the HOW TO
+  // ASK card replaces it, spec 13.10). The screen starts clean with hint + card.
+  const firstUserIdx = messages.findIndex((m) => m.role === "user");
+
   return (
     <div className="min-h-[100dvh] bg-[#0D0D0D] text-white flex flex-col pb-20">
-      <header className="px-6 pt-8 pb-3">
-        <h1 className="font-serif-i text-2xl">Ask Now</h1>
+      {/* top bar — 'Ask Now' centred in Cormorant Italic 18px (spec 13.10). No
+          back arrow: this is a bottom-nav tab, not a pushed screen. */}
+      <header className="flex items-center justify-center px-6 py-4 shrink-0">
+        <h1 className="font-serif-i text-[18px]">{t("Ask Now")}</h1>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 pb-4">
-        <div className="max-w-2xl mx-auto space-y-5">
-          {messages.map((m, i) =>
-            m.role === "user" ? (
-              <div key={i} className="flex justify-end">
-                <div className="max-w-[82%] bg-white/10 border border-white/10 rounded-2xl rounded-tr-md px-4 py-2.5 text-[15px] leading-relaxed">
+      {/* upper-third hint line + full-width 40%-opacity divider (spec 13.10). */}
+      <div className="px-6 pt-1 pb-4">
+        <div className="max-w-2xl mx-auto">
+          <p className="font-light text-[12px] text-[#b3b3b3]">
+            {t("Your question · the exact moment it came to you · your city")}
+          </p>
+          <hr className="mt-3 border-0 border-t border-[#d4d4d4]/40" />
+        </div>
+      </div>
+
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 pb-4">
+        <div className="max-w-2xl mx-auto">
+          {messages.map((m, i) => {
+            // Skip the fixed opening assistant message before any user turn.
+            if (i === 0 && m.role === "assistant" && (firstUserIdx === -1 || i < firstUserIdx)) {
+              return null;
+            }
+            return m.role === "user" ? (
+              // Follow-up: thin full-width divider then a single italic line (spec 13.8).
+              <div key={i} className="mt-8">
+                <hr className="reading-divider mb-4" />
+                <p className="font-light italic text-[15px] text-[#b3b3b3]" dir={rtl ? "rtl" : undefined}>
                   {m.content}
-                </div>
+                </p>
               </div>
             ) : (
-              <div key={i} className="advisor-text group" dir={rtl ? "rtl" : undefined}>
-                {stripMarkdown(stripLeadingGlyph(m.content)).split(/\n{2,}/).map((p, j) => (
-                  <p key={j}>{p}</p>
-                ))}
-                <ReadAloud text={stripMarkdown(stripLeadingGlyph(m.content))} lang={lang} />
+              <div key={i} className="mt-8 first:mt-0">
+                <div className="advisor-text group" dir={rtl ? "rtl" : undefined}>
+                  {stripMarkdown(stripLeadingGlyph(m.content)).split(/\n{2,}/).map((p, j) => (
+                    <p key={j}>{p}</p>
+                  ))}
+                  <ReadAloud text={stripMarkdown(stripLeadingGlyph(m.content))} lang={lang} />
+                </div>
+                {/* Disclaimer at the base of every response (spec 13.11). */}
+                <p className="font-light text-[11px] text-[#b3b3b3] leading-[1.7] mt-5" dir={rtl ? "rtl" : undefined}>
+                  {t(DISCLAIMER)}
+                </p>
               </div>
-            )
-          )}
+            );
+          })}
           {streaming && buffer && (
-            <div className="advisor-text cursor-blink">
+            <div className="advisor-text cursor-blink mt-8" dir={rtl ? "rtl" : undefined}>
               {stripMarkdown(stripLeadingGlyph(buffer)).split(/\n{2,}/).map((p, j) => (
                 <p key={j}>{p}</p>
               ))}
             </div>
           )}
           {streaming && !buffer && (
-            <p className="advisor-text text-[#b3b3b3] italic">{t("reading this moment…")}</p>
+            <p className="advisor-text text-[#b3b3b3] italic mt-8">{t("reading this moment…")}</p>
           )}
         </div>
       </div>
 
-      {showHint && messages.length <= 1 && !streaming && !input.trim() && (
-        <div className="px-4 pb-2">
-          <div className="max-w-2xl mx-auto relative bg-white/[0.04] border border-white/10 rounded-2xl px-4 py-3 pr-9">
+      {/* HOW TO ASK card — square corners, thin 30%-opacity #D4D4D4 border, no fill
+          (spec 13.10). Sits just above the input; × dismisses for this session. */}
+      {showHint && firstUserIdx === -1 && !streaming && (
+        <div className="px-6 pb-3">
+          <div className="max-w-2xl mx-auto relative rounded-none border border-[#d4d4d4]/30 bg-[#0D0D0D] px-4 py-3.5 pr-9">
             <button
               onClick={() => setShowHint(false)}
               aria-label={t("Dismiss")}
-              className="absolute top-1.5 right-2.5 text-[#777] hover:text-white text-lg leading-none w-6 h-6"
+              className="absolute top-2.5 right-3 text-[#b3b3b3] hover:text-white text-lg leading-none w-6 h-6"
             >
               ×
             </button>
-            <p className="micro-label mb-2">{t("How to ask")}</p>
-            <p className="text-[12.5px] text-[#a9a6a0] leading-relaxed mb-2.5">
-              {t("One sentence, three things:")}{" "}
-              <span className="text-[#e8e6e1]">{t("your question")}</span> ·{" "}
-              <span className="text-[#e8e6e1]">{t("the exact date & time it came to you")}</span> ·{" "}
-              <span className="text-[#e8e6e1]">{t("the city you were in")}</span>.
+            <p className="section-header mb-2.5">{t("How to ask")}</p>
+            <p className="font-light text-[13px] text-[#b3b3b3] leading-relaxed">
+              {t("Ask Now answers one specific question at a time. Three things make this work — your question must come to you naturally, you remember the exact moment it arrived in your mind, and you know which city you were in at that moment.")}
             </p>
             <button
               onClick={() => { setInput(t(SAMPLE)); setShowHint(false); }}
-              className="text-left font-serif-i italic text-[13px] text-[#b3b3b3] hover:text-white transition"
+              className="block text-left font-light italic text-[13px] text-[#b3b3b3] hover:text-white transition mt-2.5"
             >
-              “{t(SAMPLE)}”{" "}
-              <span className="not-italic text-[11px] text-[#777]">— {t("tap to try")}</span>
+              {t("For example: Will I find my lost ring? I thought of asking this on 02 Jun 2026 at 9:32 PM and I was in Delhi, India.")}
             </button>
           </div>
         </div>

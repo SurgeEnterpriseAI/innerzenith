@@ -117,7 +117,7 @@ function profileContext(p: ProfileLite | null | undefined): string {
 
 export async function POST(req: NextRequest) {
   const apiKey = readEnv("ANTHROPIC_API_KEY");
-  const model = readEnv("ANTHROPIC_MODEL") || "claude-opus-4-5";
+  const model = readEnv("ANTHROPIC_MODEL") || "claude-sonnet-4-6";
   if (!apiKey || apiKey.includes("your-key-here")) {
     return new Response(
       "Missing ANTHROPIC_API_KEY. Add it to .env.local and restart the server.",
@@ -369,62 +369,40 @@ export async function POST(req: NextRequest) {
   const client = new Anthropic({ apiKey });
   const encoder = new TextEncoder();
 
-  // Inline verification runs for EVERY mode that has chart facts to check against
-  // (Ask Now, natal categories, Surprise Me) when a critic is configured. Capped
-  // revisions bound latency. Set VERIFY_MAX_REVISIONS=0 to disable revising.
+  // Verification runs CONCURRENTLY, not in front of the reader. The reading
+  // streams live for an immediate first word; once it has finished streaming the
+  // critic's verdict is logged for the regression radar — it never blocks output.
+  // The enforcing quality layer is the batch QA harness + CI gate (verify/).
   const verifyOn = verifyConfigured() && Boolean(verifyFacts);
-  const maxRevisions = Math.max(0, Number(readEnv("VERIFY_MAX_REVISIONS") || "1"));
 
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        if (verifyOn) {
-          // PRODUCE → AUDIT (diverse AI) → REVISE, then stream the approved reading.
-          const generate = async (extra: string): Promise<string> => {
-            const msg = await client.messages.create({
-              model, system: system + extra, max_tokens: 4096, messages,
-            });
-            return msg.content
-              .filter((b: any) => b.type === "text")
-              .map((b: any) => b.text)
-              .join("");
-          };
-          let reading = await generate("");
-          let verdict = await auditReading(stripLeadingGlyph(reading), verifyFacts, verifyQuestion);
-          let revs = 0;
-          while (!verdict.pass && verdict.issues.length && revs < maxRevisions) {
-            revs++;
-            const fb =
-              "\n\n--- REVISION REQUIRED — an independent reviewer checked your draft against the calculated chart and found these problems. Fix EVERY one; keep everything else intact. NEVER mention this review or that the answer was revised. ---\n" +
-              verdict.issues.map((x, i) => `${i + 1}. ${x}`).join("\n");
-            reading = await generate(fb);
-            verdict = await auditReading(stripLeadingGlyph(reading), verifyFacts, verifyQuestion);
-          }
-          // Observability (Vercel logs): did the loop converge, and after how many?
-          console.log(`[verify] mode=${mode} revisions=${revs} pass=${verdict.pass} issues=${verdict.issues.length}`);
-          // Stream the approved reading in small chunks for a live feel.
-          for (let i = 0; i < reading.length; i += 64) {
-            controller.enqueue(encoder.encode(reading.slice(i, i + 64)));
-          }
-          controller.close();
-          return;
-        }
-
         const streamResp = await client.messages.stream({
           model,
           system,
           max_tokens: 4096,
           messages,
         });
+        let full = "";
         for await (const event of streamResp) {
           if (
             event.type === "content_block_delta" &&
             event.delta.type === "text_delta"
           ) {
+            full += event.delta.text;
             controller.enqueue(encoder.encode(event.delta.text));
           }
         }
         controller.close();
+        // Non-blocking audit (the user already has the reading). Runs after
+        // close() so it adds zero perceived latency; logged for observability.
+        if (verifyOn && verifyFacts) {
+          try {
+            const verdict = await auditReading(stripLeadingGlyph(full), verifyFacts, verifyQuestion);
+            console.log(`[verify] mode=${mode} pass=${verdict.pass} issues=${verdict.issues.length} (non-blocking)`);
+          } catch {}
+        }
       } catch (e: any) {
         const status = e?.status ?? e?.response?.status;
         let friendly: string;

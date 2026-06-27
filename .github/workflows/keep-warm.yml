@@ -1,0 +1,28 @@
+name: Keep ephemeris engine warm
+
+# The Prashna/chart engine runs on Render's free tier, which sleeps after ~15 min
+# of inactivity — a cold start then adds ~50s to the first reading. This pings it
+# every ~10 min so it stays warm. Best-effort: GitHub's scheduled runs can be
+# delayed under load, and scheduled workflows auto-disable after 60 days of repo
+# inactivity. For a hard guarantee, add an external uptime monitor (e.g. UptimeRobot)
+# hitting the same URL.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping the engine
+        run: |
+          URL="${{ secrets.EPHEMERIS_URL }}"
+          if [ -z "$URL" ]; then URL="https://dotit-ephemeris.onrender.com"; fi
+          echo "Pinging $URL"
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 "$URL/docs" || echo "000")
+          echo "HTTP $code"
+          # A 2xx/3xx means awake; don't fail the job on a transient cold-start blip.
+          case "$code" in 2*|3*) echo "engine awake";; *) echo "engine not ready (code $code) — non-fatal";; esac

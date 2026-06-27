@@ -144,9 +144,16 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
   return (
     <div className="min-h-[100dvh] flex flex-col bg-[#0D0D0D] text-white px-6 py-8">
       {/* the forming constellation */}
-      <div className="flex justify-center pt-2 pb-6">
+      <div className="flex justify-center pt-2 pb-4">
         <FormingShape shape={shapeRef.current} litCount={step + 1} />
       </div>
+
+      {/* brand tagline — shown once, on the entry screen */}
+      {step === 0 && (
+        <p className="font-serif-i text-[12.5px] text-[#b3b3b3] text-center pb-4 fade-up">
+          {t("Ancient wisdom, modern problems, real answers.")}
+        </p>
+      )}
 
       <p className="micro-label text-center">{t("Dot {n} of 7", { n: s.n })}{s.n === 5 ? t(" — optional") : ""}</p>
 

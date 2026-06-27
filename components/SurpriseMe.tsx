@@ -81,9 +81,10 @@ export default function SurpriseMe({
 
   return (
     <div className="flex flex-col h-[100dvh] bg-[#0D0D0D] text-white">
-      <header className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
-        <button onClick={onBack} className="text-[#b3b3b3] hover:text-white text-lg leading-none px-1">‹</button>
-        <h1 className="font-serif-i text-base">Surprise Me</h1>
+      {/* top bar — back arrow far left, title centred in Cormorant Regular 18px (spec 13.9 / 13.2). */}
+      <header className="relative flex items-center justify-center px-6 py-4 shrink-0">
+        <button onClick={onBack} aria-label={t("Back")} className="absolute left-5 text-[#d4d4d4] hover:text-white text-2xl leading-none">‹</button>
+        <h1 className="font-serif-i text-[18px] not-italic">{t("Surprise Me")}</h1>
       </header>
 
       <div className="flex-1 overflow-y-auto px-5 py-8">

@@ -3,9 +3,9 @@ import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "dotit",
+  title: "dotit — Ancient wisdom, modern problems, real answers",
   description:
-    "Your dots were placed the moment you were born. dotit connects them.",
+    "Ancient wisdom, modern problems, real answers. Your dots were placed the moment you were born — dotit connects them.",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "dotit" },
 };

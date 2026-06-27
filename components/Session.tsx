@@ -298,12 +298,21 @@ function Reading({
     else sections.push({ header: null, paras: [b] });
   }
 
+  // The illustration sits in WHERE YOUR DOTS SIT NOW — the second named section
+  // (Pankhuri's intent). Locate it by header so a leading paragraph can't shift
+  // it into THE PICTURE SO FAR; fall back to the second headered section.
+  const headered = sections.map((s, i) => ({ s, i })).filter((x) => x.s.header);
+  let glyphIdx = headered.find(
+    (x) => x.s.header!.trim().toLowerCase().replace(/[.:]+$/, "") === SECTION_LABELS[1]
+  )?.i;
+  if (glyphIdx == null) glyphIdx = headered[1]?.i ?? (sections.length > 1 ? 1 : 0);
+
   return (
     <div className="advisor-text" dir={rtl ? "rtl" : undefined}>
       {sections.map((sec, si) => (
         <div key={si} className="overflow-hidden">
           {sec.header && <div className="section-header mb-3">{sec.header}</div>}
-          {glyph && si === 1 && (
+          {glyph && si === glyphIdx && (
             <img src={symbolSrc(glyph)} alt="" aria-hidden className="reading-glyph" draggable={false} />
           )}
           {sec.paras.map((p, pi) => (

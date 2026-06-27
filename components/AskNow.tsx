@@ -135,7 +135,7 @@ export default function AskNow({ profile }: { profile: Profile }) {
       {/* top bar — 'Ask Now' centred in Cormorant Italic 18px (spec 13.10). No
           back arrow: this is a bottom-nav tab, not a pushed screen. */}
       <header className="flex items-center justify-center px-6 py-4 shrink-0">
-        <h1 className="font-serif-i text-[18px]">{t("Ask Now")}</h1>
+        <h1 className="font-serif-i text-[18px] not-italic">{t("Ask Now")}</h1>
       </header>
 
       {/* upper-third hint line + full-width 40%-opacity divider (spec 13.10). */}

@@ -6,7 +6,9 @@
 import { useMemo, useState } from "react";
 import { loadSessions, deleteSession, Session } from "@/lib/sessions";
 import { categoryByKey } from "@/lib/categories";
+import { resolveGlyph } from "@/lib/symbols";
 import { useT } from "@/lib/i18n";
+import SymbolGlyph from "./SymbolGlyph";
 
 export default function History({ onOpen }: { onOpen: (s: Session) => void }) {
   const { t } = useT();
@@ -37,16 +39,17 @@ export default function History({ onOpen }: { onOpen: (s: Session) => void }) {
           <p className="text-[#b3b3b3] text-sm italic font-serif-i">{t("No sessions yet. Tap a constellation to begin.")}</p>
         )}
         <ul className="space-y-1">
-          {filtered.map((s, i) => {
+          {filtered.map((s) => {
             const short = s.isAskNow ? t("ASK NOW") : categoryByKey(s.category)?.short ?? "";
+            const sym = s.symbol ?? resolveGlyph(s.messages.find((m) => m.role === "assistant")?.content || "", s.category);
             return (
               <li key={s.id} className="flex items-center gap-2 border-b border-white/8">
                 <button
                   onClick={() => onOpen(s)}
-                  className="flex-1 text-left py-3 flex gap-3 hover:bg-white/[0.03] transition"
+                  className="flex-1 text-left py-3 flex items-center gap-3 hover:bg-white/[0.03] transition"
                 >
-                  <span className="text-[#b3b3b3] text-xs w-5 pt-0.5">{i + 1}</span>
-                  <span className="micro-label pt-0.5 w-16 shrink-0">{short}</span>
+                  <SymbolGlyph keyName={sym} size={30} className="w-8 shrink-0" />
+                  <span className="micro-label w-16 shrink-0">{short}</span>
                   <span className="text-sm text-[#d4d4d4] truncate">{s.keyword}</span>
                 </button>
                 <button

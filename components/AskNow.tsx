@@ -8,9 +8,11 @@ import { useEffect, useRef, useState } from "react";
 import { Profile } from "@/lib/profile";
 import { stripMarkdown } from "@/lib/text";
 import { ChatMsg, Session as Sess, newId, upsertSession } from "@/lib/sessions";
+import { extractGlyphKey, stripLeadingGlyph } from "@/lib/symbols";
 import { languageByCode } from "@/lib/languages";
 import { useT } from "@/lib/i18n";
 import ReadAloud from "./ReadAloud";
+import SymbolGlyph from "./SymbolGlyph";
 
 const OPENING = `Ask Now answers one specific question at a time.
 
@@ -35,7 +37,9 @@ export default function AskNow({ profile }: { profile: Profile }) {
   const [streaming, setStreaming] = useState(false);
   const [buffer, setBuffer] = useState("");
   const [showHint, setShowHint] = useState(true);
+  const [symbol, setSymbol] = useState<string | null>(null);
   const sessionRef = useRef<Sess | null>(null);
+  const symbolRef = useRef<string | null>(null);
   // Frozen resolved Ask Now inputs (moment/city/question) — set from the server's
   // X-AskNow-Resolved header on the first answer, reused on every follow-up so the
   // chart never silently re-extracts to a different moment.
@@ -62,6 +66,7 @@ export default function AskNow({ profile }: { profile: Profile }) {
       s = { ...s, messages: msgs };
     }
     if (askNowRef.current) s = { ...s, askNow: askNowRef.current };
+    if (symbolRef.current) s = { ...s, symbol: symbolRef.current };
     sessionRef.current = s;
     upsertSession(s);
   }
@@ -104,7 +109,14 @@ export default function AskNow({ profile }: { profile: Profile }) {
         acc += dec.decode(value, { stream: true });
         setBuffer(acc);
       }
-      const final = [...next, { role: "assistant" as const, content: acc }];
+      // A real answer (not a "missing piece" prompt) carries a glyph control
+      // line — crown the session the first time one arrives.
+      const key = extractGlyphKey(acc);
+      if (key && !symbolRef.current) {
+        symbolRef.current = key;
+        setSymbol(key);
+      }
+      const final = [...next, { role: "assistant" as const, content: stripLeadingGlyph(acc) }];
       setMessages(final);
       setBuffer("");
       persist(final);
@@ -123,6 +135,7 @@ export default function AskNow({ profile }: { profile: Profile }) {
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 pb-4">
         <div className="max-w-2xl mx-auto space-y-5">
+          <SymbolGlyph keyName={symbol} className="pt-1 pb-1" />
           {messages.map((m, i) =>
             m.role === "user" ? (
               <div key={i} className="flex justify-end">
@@ -132,16 +145,16 @@ export default function AskNow({ profile }: { profile: Profile }) {
               </div>
             ) : (
               <div key={i} className="advisor-text group" dir={rtl ? "rtl" : undefined}>
-                {stripMarkdown(m.content).split(/\n{2,}/).map((p, j) => (
+                {stripMarkdown(stripLeadingGlyph(m.content)).split(/\n{2,}/).map((p, j) => (
                   <p key={j}>{p}</p>
                 ))}
-                <ReadAloud text={stripMarkdown(m.content)} lang={lang} />
+                <ReadAloud text={stripMarkdown(stripLeadingGlyph(m.content))} lang={lang} />
               </div>
             )
           )}
           {streaming && buffer && (
             <div className="advisor-text cursor-blink">
-              {stripMarkdown(buffer).split(/\n{2,}/).map((p, j) => (
+              {stripMarkdown(stripLeadingGlyph(buffer)).split(/\n{2,}/).map((p, j) => (
                 <p key={j}>{p}</p>
               ))}
             </div>

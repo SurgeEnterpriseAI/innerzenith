@@ -14,9 +14,11 @@ import {
   topicSeen,
 } from "@/lib/sessions";
 import { stripMarkdown } from "@/lib/text";
+import { resolveGlyph, stripLeadingGlyph } from "@/lib/symbols";
 import { languageByCode } from "@/lib/languages";
 import { useT } from "@/lib/i18n";
 import ReadAloud from "./ReadAloud";
+import SymbolGlyph from "./SymbolGlyph";
 
 export default function Session({
   profile,
@@ -43,8 +45,10 @@ export default function Session({
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [buffer, setBuffer] = useState("");
+  const [symbol, setSymbol] = useState<string | null>(existing?.symbol ?? null);
 
   const sessionRef = useRef<Sess | null>(existing ?? null);
+  const symbolRef = useRef<string | null>(existing?.symbol ?? null);
   // Frozen Ask Now inputs — seeded from a reopened session, refreshed from the
   // server's X-AskNow-Resolved header, so follow-ups reuse the same moment-chart.
   const askNowRef = useRef<Sess["askNow"] | null>(existing?.askNow ?? null);
@@ -86,6 +90,7 @@ export default function Session({
       s = { ...s, messages: msgs };
     }
     if (askNowRef.current) s = { ...s, askNow: askNowRef.current };
+    if (symbolRef.current) s = { ...s, symbol: symbolRef.current };
     sessionRef.current = s;
     upsertSession(s);
   }
@@ -138,8 +143,15 @@ export default function Session({
         acc += dec.decode(value, { stream: true });
         setBuffer(acc);
       }
+      // Crown the session with its glyph on the opening reading (the producer
+      // named one via a leading control line; theme-fallback if it didn't).
+      if (opts?.hideOpening && !symbolRef.current) {
+        const g = resolveGlyph(acc, category);
+        symbolRef.current = g;
+        setSymbol(g);
+      }
       const visibleThread = opts?.hideOpening ? [] : thread;
-      const final: ChatMsg[] = [...visibleThread, { role: "assistant", content: acc }];
+      const final: ChatMsg[] = [...visibleThread, { role: "assistant", content: stripLeadingGlyph(acc) }];
       setMessages(final);
       setBuffer("");
       persist(final);
@@ -159,6 +171,11 @@ export default function Session({
     void stream(next);
   }
 
+  // The glyph to show: the session's stored one, else derived from the opening
+  // reading so sessions created before this feature still get a fitting symbol.
+  const firstAssistant = messages.find((m) => m.role === "assistant")?.content;
+  const displaySymbol = symbol ?? (firstAssistant ? resolveGlyph(firstAssistant, category) : null);
+
   return (
     <div className="flex flex-col h-[100dvh] bg-[#2b2b2b] text-white">
       <header className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
@@ -168,6 +185,7 @@ export default function Session({
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-6">
         <div className="max-w-2xl mx-auto space-y-6">
+          <SymbolGlyph keyName={displaySymbol} className="pt-1 pb-1" />
           {!isAskNow && (
             <p className="font-serif-i text-xs text-[#b3b3b3] italic text-center">
               For a question that has come to you on its own — try Ask Now.
@@ -176,7 +194,7 @@ export default function Session({
           {messages.map((m, i) => (
             <Bubble key={i} role={m.role} content={m.content} lang={lang} rtl={rtl} />
           ))}
-          {streaming && buffer && <Bubble role="assistant" content={buffer} streaming lang={lang} rtl={rtl} />}
+          {streaming && buffer && <Bubble role="assistant" content={stripLeadingGlyph(buffer)} streaming lang={lang} rtl={rtl} />}
           {streaming && !buffer && (
             <p className="advisor-text text-[#b3b3b3] italic">reading your dots…</p>
           )}
@@ -222,7 +240,7 @@ function Bubble({ role, content, streaming, lang, rtl }: { role: "user" | "assis
       </div>
     );
   }
-  const clean = stripMarkdown(content);
+  const clean = stripMarkdown(stripLeadingGlyph(content));
   return (
     <div className={`advisor-text group ${streaming ? "cursor-blink" : ""}`} dir={rtl ? "rtl" : undefined}>
       {clean.split(/\n{2,}/).map((p, i) => (

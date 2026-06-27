@@ -8,6 +8,7 @@ import { classicalGrounding } from "@/lib/rag";
 import { parseAskNow, missingPrompt } from "@/lib/asknow";
 import { languageByCode } from "@/lib/languages";
 import { auditReading, verifyConfigured } from "@/lib/verify";
+import { GLYPH_DIRECTIVE, stripLeadingGlyph } from "@/lib/symbols";
 
 const TEXT_HEADERS = {
   "Content-Type": "text/plain; charset=utf-8",
@@ -161,6 +162,9 @@ export async function POST(req: NextRequest) {
   // is configured. Set in each mode branch below.
   let verifyFacts: string | null = null;
   let verifyQuestion = "";
+  // Whether this response is a substantive reading that earns a glyph (the first
+  // broad reading, an Ask Now answer, Surprise Me) — set in the mode branches.
+  let wantsGlyph = false;
 
   // Base prompt by mode (Surprise Me uses the natal brain + a special directive).
   let system =
@@ -193,6 +197,7 @@ export async function POST(req: NextRequest) {
       system += "\n\n" + sCtx;
       verifyFacts = chartToContext(body.chartProfile, body.profile?.current_city) + "\n" + sCtx;
       verifyQuestion = "today's Surprise Me reading";
+      wantsGlyph = true;
     }
   } else if (mode === "asknow") {
     // Stage 8.3 — the three things (question + moment + city). FREEZE them once:
@@ -238,6 +243,7 @@ export async function POST(req: NextRequest) {
       askNowResolved = resolved; // echo back so the client freezes it for follow-ups
       verifyFacts = JSON.stringify(chart); // ground truth for the inline critic
       verifyQuestion = resolved.question;
+      wantsGlyph = true;
       system +=
         "\n\n--- QUESTION-MOMENT CHART (the three things are all present; answer now) ---\n" +
         `Question: ${resolved.question}\nMoment: ${resolved.datetime_local} in ${geo.name}\n` +
@@ -269,12 +275,19 @@ export async function POST(req: NextRequest) {
     verifyFacts = nCtx + catCtx + drill;
     const lastU = [...body.messages].reverse().find((m) => m.role === "user" && !m.content.startsWith("__"));
     verifyQuestion = (lastU?.content || "").slice(0, 240) || (body.category ? `the user's ${body.category} reading` : "the reading");
+    // Only the first broad reading is crowned with a glyph — not "welcome back"
+    // returns or in-topic follow-ups.
+    wantsGlyph = body.messages[0]?.content === "__begin_first__";
   } else if (body.birth && body.birth.birth_date) {
     try {
       const chart = await fetchChart(body.birth);
       if (chart) system += "\n\n" + chartToContext(chart, body.profile?.current_city);
     } catch {}
   }
+
+  // Reading glyph — ask the producer to name the one symbol that best embodies
+  // this reading (stripped + rendered client-side; theme-fallback if omitted).
+  if (wantsGlyph) system += GLYPH_DIRECTIVE;
 
   // Classical grounding (Stage 11.1 RAG) — retrieve relevant passages from the
   // source texts and inject them as the authority behind the interpretation.
@@ -377,7 +390,7 @@ export async function POST(req: NextRequest) {
               .join("");
           };
           let reading = await generate("");
-          let verdict = await auditReading(reading, verifyFacts, verifyQuestion);
+          let verdict = await auditReading(stripLeadingGlyph(reading), verifyFacts, verifyQuestion);
           let revs = 0;
           while (!verdict.pass && verdict.issues.length && revs < maxRevisions) {
             revs++;
@@ -385,7 +398,7 @@ export async function POST(req: NextRequest) {
               "\n\n--- REVISION REQUIRED — an independent reviewer checked your draft against the calculated chart and found these problems. Fix EVERY one; keep everything else intact. NEVER mention this review or that the answer was revised. ---\n" +
               verdict.issues.map((x, i) => `${i + 1}. ${x}`).join("\n");
             reading = await generate(fb);
-            verdict = await auditReading(reading, verifyFacts, verifyQuestion);
+            verdict = await auditReading(stripLeadingGlyph(reading), verifyFacts, verifyQuestion);
           }
           // Observability (Vercel logs): did the loop converge, and after how many?
           console.log(`[verify] mode=${mode} revisions=${revs} pass=${verdict.pass} issues=${verdict.issues.length}`);

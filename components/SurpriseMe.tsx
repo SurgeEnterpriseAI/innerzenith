@@ -8,9 +8,11 @@ import { useEffect, useRef, useState } from "react";
 import { Profile } from "@/lib/profile";
 import { stripMarkdown } from "@/lib/text";
 import { getTodaySurprise, saveTodaySurprise } from "@/lib/surprise";
+import { resolveGlyph, stripLeadingGlyph } from "@/lib/symbols";
 import { languageByCode } from "@/lib/languages";
 import { useT } from "@/lib/i18n";
 import ReadAloud from "./ReadAloud";
+import SymbolGlyph from "./SymbolGlyph";
 
 export default function SurpriseMe({
   profile,
@@ -87,6 +89,9 @@ export default function SurpriseMe({
 
       <div className="flex-1 overflow-y-auto px-5 py-8">
         <div className="max-w-2xl mx-auto">
+          {!streaming && text.length > 0 && (
+            <SymbolGlyph keyName={resolveGlyph(text, "surprise")} className="pb-4" />
+          )}
           {welcomeBack && (
             <p className="font-serif-i italic text-sm text-[#b3b3b3] mb-5">
               {t("You've already drawn today's reading — here it is again. A fresh one arrives tomorrow.")}
@@ -96,10 +101,10 @@ export default function SurpriseMe({
             <p className="advisor-text text-[#b3b3b3] italic">{t("reading the sky over you today…")}</p>
           )}
           <div className={`advisor-text group ${streaming ? "cursor-blink" : ""}`} dir={rtl ? "rtl" : undefined}>
-            {stripMarkdown(text).split(/\n{2,}/).map((p, i) => (
+            {stripMarkdown(stripLeadingGlyph(text)).split(/\n{2,}/).map((p, i) => (
               <p key={i}>{p}</p>
             ))}
-            {!streaming && text.length > 0 && <ReadAloud text={stripMarkdown(text)} lang={lang} />}
+            {!streaming && text.length > 0 && <ReadAloud text={stripMarkdown(stripLeadingGlyph(text))} lang={lang} />}
           </div>
         </div>
       </div>

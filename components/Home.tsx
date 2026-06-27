@@ -4,6 +4,11 @@
 // career / relationships / property / health, and the constellation figures
 // rendered as matching dark cards for money / life purpose, plus a Surprise Me
 // banner. Tapping a card opens that category.
+//
+// Single-screen, no-scroll (reviewer ask): the whole home fits one viewport.
+// The shell is a fixed 100dvh flex column; greeting / Surprise / footer are
+// shrink-0, and the 6-tile gallery flexes to fill whatever height is left, so
+// the tiles auto-size to the device and nothing ever scrolls.
 
 import { Profile } from "@/lib/profile";
 import { CategoryKey, CATEGORIES } from "@/lib/categories";
@@ -33,9 +38,9 @@ export default function Home({
   const surprise = CATEGORIES.find((c) => c.key === "surprise")!;
 
   return (
-    <div className="min-h-[100dvh] bg-[#2b2b2b] text-white flex flex-col pb-20">
+    <div className="h-[100dvh] bg-[#2b2b2b] text-white flex flex-col overflow-hidden pb-20">
       {/* greeting */}
-      <div className="px-6 pt-10">
+      <div className="px-6 pt-8 shrink-0">
         <div className="flex items-start justify-between">
           <div>
             <p className="micro-label">{t("Hi")}</p>
@@ -48,29 +53,31 @@ export default function Home({
             {initial}
           </button>
         </div>
-        <div className="h-px bg-white/10 mt-5" />
-        <p className="micro-label text-center mt-5">{t("What do you want to explore")}</p>
+        <div className="h-px bg-white/10 mt-4" />
+        <p className="micro-label text-center mt-4">{t("What do you want to explore")}</p>
       </div>
 
-      {/* gallery */}
-      <div className="flex-1 overflow-y-auto px-4 mt-4">
-        <div className="max-w-2xl mx-auto grid grid-cols-2 gap-3">
+      {/* gallery — flexes to fill the remaining height; never scrolls */}
+      <div className="flex-1 min-h-0 px-4 mt-3 flex flex-col gap-2.5">
+        <div className="flex-1 min-h-0 max-w-2xl w-full mx-auto grid grid-cols-2 grid-rows-3 gap-2.5">
           {grid.map((c) =>
             IMAGE_FIGURES.has(c.key) ? (
               <button
                 key={c.key}
                 onClick={() => onPick(c.key)}
                 aria-label={t(c.label)}
-                className="relative aspect-square active:scale-[0.97] transition-transform"
+                className="relative min-h-0 active:scale-[0.97] transition-transform"
               >
                 {/* lighten blend drops the artwork's dark background down to the
                     page colour, so the figure floats on the unified canvas
-                    instead of sitting in a distinct card (spec 7.1/7.2). */}
+                    instead of sitting in a distinct card (spec 7.1/7.2).
+                    object-contain keeps the whole figure visible as the tile
+                    flexes to non-square sizes on short screens. */}
                 <img
                   src={`/figures/${c.key}.webp`}
                   alt={t(c.label)}
                   loading="lazy"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                   style={{ mixBlendMode: "lighten" }}
                 />
               </button>
@@ -78,25 +85,25 @@ export default function Home({
               <FigureTile key={c.key} figKey={c.key} label={t(c.label)} onPick={onPick} />
             )
           )}
-
-          {/* Surprise Me — full-width banner (founder artwork, merged) */}
-          <button
-            onClick={() => onPick("surprise")}
-            aria-label={t(surprise.label)}
-            className="col-span-2 relative flex items-center justify-center pt-1 active:scale-[0.98] transition-transform"
-          >
-            <img
-              src="/figures/surprise.webp"
-              alt={t(surprise.label)}
-              loading="lazy"
-              className="h-40 w-auto object-contain"
-              style={{ mixBlendMode: "lighten" }}
-            />
-          </button>
         </div>
+
+        {/* Surprise Me — slim full-width bar (founder artwork, merged) */}
+        <button
+          onClick={() => onPick("surprise")}
+          aria-label={t(surprise.label)}
+          className="shrink-0 relative flex items-center justify-center active:scale-[0.98] transition-transform"
+        >
+          <img
+            src="/figures/surprise.webp"
+            alt={t(surprise.label)}
+            loading="lazy"
+            className="h-14 w-auto object-contain"
+            style={{ mixBlendMode: "lighten" }}
+          />
+        </button>
       </div>
 
-      <p className="font-serif-i italic text-xs text-[#b3b3b3] text-center px-8 pt-3 pb-3">
+      <p className="font-serif-i italic text-[11px] leading-snug text-[#b3b3b3] text-center px-8 pt-2 pb-2 shrink-0">
         {t("For a question that has come to you on its own — try Ask Now.")}
       </p>
     </div>
@@ -130,10 +137,10 @@ function FigureTile({
     <button
       onClick={() => onPick(figKey)}
       aria-label={label}
-      className="relative aspect-square rounded-2xl overflow-hidden flex flex-col items-center justify-center active:scale-[0.97] transition-transform"
+      className="relative h-full w-full min-h-0 rounded-2xl overflow-hidden flex flex-col items-center justify-center active:scale-[0.97] transition-transform"
       style={{ background: TILE_BG }}
     >
-      <div className="flex-1 w-full flex items-center justify-center p-7 pb-2 min-h-0">
+      <div className="flex-1 w-full flex items-center justify-center p-5 pb-1 min-h-0">
         <svg viewBox={vb} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
           {fig.edges.map(([a, b], i) => (
             <line
@@ -154,7 +161,7 @@ function FigureTile({
           ))}
         </svg>
       </div>
-      <span className="font-serif-i text-[15px] text-[#d4d4d4] pb-4">{label}</span>
+      <span className="font-serif-i text-[13px] text-[#d4d4d4] pb-3">{label}</span>
     </button>
   );
 }

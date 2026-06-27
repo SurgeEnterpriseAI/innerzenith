@@ -13,6 +13,9 @@ export type Session = {
   keyword: string;            // extracted from first substantive user msg
   messages: ChatMsg[];
   created_at: string;
+  // The reading's glyph (Pankhuri's symbol set) — chosen by the producer on the
+  // opening reading, shown crowning the session and on its History card.
+  symbol?: string;
   // Ask Now capture
   askMoment?: { iso: string; city: string | null; lat: number | null; lng: number | null };
   // Frozen, resolved Ask Now inputs — set once the moment-chart is first cast, so

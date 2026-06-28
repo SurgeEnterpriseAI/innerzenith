@@ -1,22 +1,34 @@
 "use client";
 
-// Stage 09 — all past sessions in one list, with category short-forms,
-// keyword, real-time search, and per-conversation delete.
+// Stage 09 / spec 13.12 — past sessions. Each row: full category name + em-dash +
+// qualifier on one line (name #D4D4D4, qualifier #FFFFFF so the topic stands out),
+// date right, delete ×, divider beneath. Tapping a row reopens and continues it.
 
 import { useMemo, useState } from "react";
-import { loadSessions, deleteSession, newId, Session } from "@/lib/sessions";
+import { loadSessions, deleteSession, Session } from "@/lib/sessions";
 import { categoryByKey } from "@/lib/categories";
 import { useT } from "@/lib/i18n";
+
+// Full title for a session: category name (or "Ask Now") + the qualifier, which is
+// the extracted keyword or "Initial" for a broad first reading (locked at save).
+function sessionTitle(s: Session): { name: string; qualifier: string } {
+  const name = s.isAskNow ? "Ask Now" : categoryByKey(s.category)?.title ?? "";
+  const kw = (s.keyword || "").trim();
+  // Old broad readings stored the category name as the keyword → treat as Initial.
+  const isInitial = !kw || kw.toLowerCase() === name.toLowerCase();
+  const qualifier = isInitial ? "Initial" : kw.charAt(0).toUpperCase() + kw.slice(1);
+  return { name, qualifier };
+}
 
 export default function History({ onOpen }: { onOpen: (s: Session) => void }) {
   const { t } = useT();
   const [q, setQ] = useState("");
   const [version, setVersion] = useState(0); // bump to refresh after delete
-  const [openId, setOpenId] = useState<string | null>(null);
   const all = useMemo(() => loadSessions(), [version]);
-  const filtered = all.filter((s) =>
-    (s.keyword + " " + (categoryByKey(s.category)?.short ?? "")).toLowerCase().includes(q.toLowerCase())
-  );
+  const filtered = all.filter((s) => {
+    const { name, qualifier } = sessionTitle(s);
+    return (name + " " + qualifier).toLowerCase().includes(q.toLowerCase());
+  });
 
   function remove(id: string) {
     if (!confirm(t("Delete this conversation?"))) return;
@@ -39,13 +51,17 @@ export default function History({ onOpen }: { onOpen: (s: Session) => void }) {
         )}
         <ul>
           {filtered.map((s) => {
-            const short = s.isAskNow ? t("ASK NOW") : categoryByKey(s.category)?.short ?? "";
-            const isOpen = openId === s.id;
+            const { name, qualifier } = sessionTitle(s);
             return (
-              <li key={s.id} className="py-3">
-                <div className="flex items-center gap-3">
-                  <span className="micro-label text-[#d4d4d4] flex-1">{short}</span>
-                  <span className="text-[11px] font-light text-[#b3b3b3]">
+              <li key={s.id} className="border-b border-[#d4d4d4]/20">
+                <div className="flex items-center gap-3 py-3">
+                  <button onClick={() => onOpen(s)} className="flex-1 min-w-0 text-left">
+                    <span className="text-[13px] font-light flex min-w-0">
+                      <span className="text-[#d4d4d4] whitespace-nowrap">{name} — </span>
+                      <span className="text-white truncate">{qualifier}</span>
+                    </span>
+                  </button>
+                  <span className="text-[11px] font-light text-[#b3b3b3] shrink-0">
                     {new Date(s.created_at).toLocaleDateString()}
                   </span>
                   <button
@@ -56,33 +72,6 @@ export default function History({ onOpen }: { onOpen: (s: Session) => void }) {
                     ✕
                   </button>
                 </div>
-                <button
-                  onClick={() => setOpenId((id) => (id === s.id ? null : s.id))}
-                  className="block w-full text-left mt-1"
-                >
-                  <span className="text-[13px] font-light text-white truncate block">{s.keyword}</span>
-                </button>
-                {isOpen && (
-                  <div className="mt-3 flex items-center justify-center gap-3 text-[15px] font-serif-i text-[#d4d4d4]">
-                    <button onClick={() => onOpen(s)}>{t("Continue")}</button>
-                    <span>·</span>
-                    <button
-                      onClick={() =>
-                        onOpen({
-                          id: newId(),
-                          category: s.category,
-                          isAskNow: s.isAskNow,
-                          keyword: "",
-                          messages: [],
-                          created_at: new Date().toISOString(),
-                        })
-                      }
-                    >
-                      {t("Start Fresh")}
-                    </button>
-                  </div>
-                )}
-                <hr className="reading-divider w-full mt-3" />
               </li>
             );
           })}

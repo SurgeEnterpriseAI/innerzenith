@@ -93,7 +93,7 @@ export default function Session({
         id: newId(),
         category,
         isAskNow,
-        keyword: firstUser ? firstUser.content.slice(0, 40) : title.toLowerCase(),
+        keyword: firstUser ? firstUser.content.slice(0, 40) : "Initial",
         messages: msgs,
         created_at: new Date().toISOString(),
         askMoment,
@@ -184,11 +184,21 @@ export default function Session({
     void stream(next);
   }
 
-  // Glyph + structured layout apply only to the first-visit category reading
-  // (the first assistant message), never Ask Now or follow-ups.
+  // Glyph + the four-section layout apply ONLY to a first-visit category reading.
+  // A first-visit reading carries the section headers (THE PICTURE SO FAR …); a
+  // return-visit welcome-back and every follow-up are plain prose with no
+  // illustration (spec 13.4 / 13.8). Detect by structure so reopened sessions
+  // render correctly regardless of how they were created.
   const firstAssistantIdx = messages.findIndex((m) => m.role === "assistant");
-  const displaySymbol =
-    symbol ?? (firstAssistantIdx >= 0 ? resolveGlyph(messages[firstAssistantIdx].content, category) : null);
+  const firstVisit =
+    !isAskNow &&
+    firstAssistantIdx >= 0 &&
+    stripMarkdown(messages[firstAssistantIdx].content)
+      .split(/\n{2,}/)
+      .some((b) => isSectionHeader(b));
+  const displaySymbol = firstVisit
+    ? symbol ?? resolveGlyph(messages[firstAssistantIdx].content, category)
+    : null;
 
   return (
     <div className="flex flex-col h-[100dvh] bg-[#0D0D0D] text-white">
@@ -215,8 +225,8 @@ export default function Session({
                 text={m.content}
                 lang={lang}
                 rtl={rtl}
-                structured={!isAskNow && i === firstAssistantIdx}
-                glyph={!isAskNow && i === firstAssistantIdx ? displaySymbol : null}
+                structured={i === firstAssistantIdx && firstVisit}
+                glyph={i === firstAssistantIdx && firstVisit ? displaySymbol : null}
               />
             )
           )}

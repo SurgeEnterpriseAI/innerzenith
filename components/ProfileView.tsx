@@ -159,7 +159,7 @@ export default function ProfileView({
             {deleting ? t("Deleting…") : t("Delete my data")}
           </button>
           <p className="text-[#B3B3B3] font-light text-[11px] leading-[1.7]">
-            {t("Your data is used only to personalise your insight — never for analytics, advertising, or sharing. You can access, correct, or delete it any time. (DPDP Act 2023)")}
+            {t("Your data is used only to personalise your insight — and your optional email only to sync across your devices — never for analytics, advertising, or sharing. You can access, correct, or delete it any time. (DPDP Act 2023)")}
           </p>
         </div>
       </div>

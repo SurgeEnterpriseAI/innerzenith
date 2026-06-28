@@ -7,12 +7,14 @@
 
 import { useEffect, useState } from "react";
 import { syncConfigured, syncWhoami, sendMagicLink, signOut } from "@/lib/sync";
+import { loadProfile } from "@/lib/profile";
 import { useT } from "@/lib/i18n";
 
 export default function AccountSync() {
   const { t } = useT();
   const [ready, setReady] = useState(false);
-  const [email, setEmail] = useState("");
+  // pre-fill with the email captured at onboarding (Dot 7), if any (spec 13.13).
+  const [email, setEmail] = useState(() => loadProfile()?.email ?? "");
   const [me, setMe] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);

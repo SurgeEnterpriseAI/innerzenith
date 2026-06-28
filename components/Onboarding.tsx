@@ -30,7 +30,6 @@ const SHAPES: { name: string; dots: [number, number][] }[] = [
   { name: "bird", dots: [[20, 30], [36, 22], [50, 28], [64, 22], [80, 30], [50, 42], [50, 60]] },
   { name: "crown", dots: [[24, 50], [34, 26], [42, 46], [50, 22], [58, 46], [66, 26], [76, 50]] },
   { name: "lotus", dots: [[50, 44], [30, 30], [40, 22], [50, 18], [60, 22], [70, 30], [50, 60]] },
-  { name: "comet", dots: [[22, 56], [32, 48], [42, 42], [52, 34], [62, 28], [72, 22], [80, 16]] },
 ];
 
 const STEPS = [
@@ -91,6 +90,7 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
       ...emptyProfile(),
       full_name: name.trim(),
       gender,
+      email: email.trim() || null,
       birth_date: birthDate,
       birth_time_local: timeMode === "known" || timeMode === "approx" ? birthTime : null,
       birth_time_known: timeMode === "known",
@@ -235,23 +235,7 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
 
         {step === 6 && (
           <div className="space-y-5">
-            {/* optional email — transactional, not birth data; for cross-device sync (Dot 7) */}
-            {syncConfigured() && (
-              <div className="space-y-2">
-                <input
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder={t("Email (optional)")}
-                  className="input-underline w-full text-[15px] font-light py-2 text-white placeholder:text-[#b3b3b3]"
-                />
-                <p className="text-[#b3b3b3] text-xs font-light leading-relaxed">
-                  {t("To sync your readings across devices. No password — we'll email you a sign-in link.")}
-                </p>
-              </div>
-            )}
+            {/* consent block — the gate, stands on its own (spec 1.2) */}
             <p className="text-[#d4d4d4] text-sm font-light leading-relaxed">
               {t("By continuing you agree to our")}{" "}
               <a href="/terms" className="text-white underline decoration-[#d4d4d4]/40 underline-offset-4">{t("Terms of Use")}</a>{" "}
@@ -268,6 +252,26 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
               />
               <span className="text-sm font-serif-i text-white">{t("I agree and I'm ready to see my picture.")}</span>
             </label>
+
+            {/* optional sync block — distinct, below the consent, separated by a
+                30% divider; never gates completion (spec 1.2 / 13.5). */}
+            {syncConfigured() && (
+              <div className="pt-5 border-t border-[#d4d4d4]/30 space-y-2">
+                <p className="micro-label text-[#d4d4d4]">{t("Sync across devices")}</p>
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder={t("your email — optional")}
+                  className="input-underline w-full text-[15px] font-light py-2 text-white placeholder:text-[#b3b3b3]"
+                />
+                <p className="text-[#b3b3b3] text-[13px] font-light leading-relaxed">
+                  {t("Used only to sync your readings across your devices.")}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>

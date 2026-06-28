@@ -13,6 +13,10 @@ export type Profile = {
   full_name: string;
   gender: Gender | null;
 
+  // optional account email for cross-device sync (captured at onboarding Dot 7
+  // or in Profile → Sync). Never required; used only for the sign-in-link sync.
+  email?: string | null;
+
   // birth
   birth_date: string | null;            // YYYY-MM-DD
   birth_time_local: string | null;      // HH:MM (24h) or null

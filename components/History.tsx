@@ -57,8 +57,8 @@ export default function History({ onOpen }: { onOpen: (s: Session) => void }) {
                 <div className="flex items-center gap-3 py-3">
                   <button onClick={() => onOpen(s)} className="flex-1 min-w-0 text-left">
                     <span className="text-[13px] font-light flex min-w-0">
-                      <span className="text-[#d4d4d4] whitespace-nowrap">{name} — </span>
-                      <span className="text-white truncate">{qualifier}</span>
+                      <span className="text-[#d4d4d4] whitespace-nowrap">{name} —</span>
+                      <span className="text-white truncate ml-1.5">{qualifier}</span>
                     </span>
                   </button>
                   <span className="text-[11px] font-light text-[#b3b3b3] shrink-0">

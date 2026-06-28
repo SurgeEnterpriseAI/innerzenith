@@ -12,6 +12,7 @@ import {
   saveProfile,
 } from "@/lib/profile";
 import TimeInput from "./TimeInput";
+import { syncConfigured, sendMagicLink } from "@/lib/sync";
 import { useT } from "@/lib/i18n";
 
 type GeoPick = {
@@ -57,6 +58,7 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
   const [birthTime, setBirthTime] = useState("");
   const [gender, setGender] = useState<"M" | "F" | null>(null);
   const [agreed, setAgreed] = useState(false);
+  const [email, setEmail] = useState(""); // optional, on Dot 7 — for cross-device sync
 
   function canAdvance(): boolean {
     switch (step) {
@@ -106,6 +108,14 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
     };
     p.profile_fidelity = deriveFidelity(p);
     saveProfile(p); // save immediately so we never lose the user's input
+
+    // Optional cross-device sync (Dot 7): if they gave an email, email a sign-in
+    // link now — fire-and-forget; clicking it later signs in and adopts the
+    // local profile/history into the account. Never blocks the flow.
+    const addr = email.trim();
+    if (addr && syncConfigured() && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)) {
+      void sendMagicLink(addr).catch(() => {});
+    }
 
     // Compute the full four-system chart ONCE, now (spec Stage 06). The engine
     // may cold-start (~30-50s) — the "Connecting your dots" screen covers it.
@@ -224,7 +234,24 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
         )}
 
         {step === 6 && (
-          <div className="space-y-4">
+          <div className="space-y-5">
+            {/* optional email — transactional, not birth data; for cross-device sync (Dot 7) */}
+            {syncConfigured() && (
+              <div className="space-y-2">
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder={t("Email (optional)")}
+                  className="input-underline w-full text-[15px] font-light py-2 text-white placeholder:text-[#b3b3b3]"
+                />
+                <p className="text-[#b3b3b3] text-xs font-light leading-relaxed">
+                  {t("To sync your readings across devices. No password — we'll email you a sign-in link.")}
+                </p>
+              </div>
+            )}
             <p className="text-[#d4d4d4] text-sm font-light leading-relaxed">
               {t("By continuing you agree to our")}{" "}
               <a href="/terms" className="text-white underline decoration-[#d4d4d4]/40 underline-offset-4">{t("Terms of Use")}</a>{" "}

@@ -1,6 +1,25 @@
 import type { Metadata, Viewport } from "next";
+import { Inter, Cormorant_Garamond } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
+
+// Fonts are self-hosted and PRELOADED at app launch by next/font (it injects
+// <link rel="preload"> for the woff2 and a size-matched fallback metric) — no
+// external Google Fonts request, no FOUT/fallback flicker. Exposed as CSS
+// variables (--font-inter / --font-cormorant) consumed throughout globals.css.
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["300", "400", "500"],
+  variable: "--font-inter",
+  display: "swap",
+});
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-cormorant",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "dotit — Ancient wisdom, modern problems, real answers",
@@ -24,7 +43,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${inter.variable} ${cormorant.variable}`}>
       <body>
         {children}
         <Analytics />

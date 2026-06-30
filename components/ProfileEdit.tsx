@@ -98,7 +98,7 @@ export default function ProfileEdit({
         </p>
 
         <label className="micro-label block mb-1">{t("Name")}</label>
-        <input value={name} onChange={(e) => setName(e.target.value)}
+        <input value={name} onChange={(e) => setName(e.target.value)} autoCapitalize="words"
           className="w-full bg-transparent border-b border-[#b3b3b3]/40 focus:border-white outline-none text-lg py-2 mb-5 font-serif-i" />
 
         <label className="micro-label block mb-1">{t("Birth date")}</label>
@@ -148,7 +148,7 @@ function CityPicker({ value, onPick }: { value: GeoPick | null; onPick: (g: GeoP
   return (
     <div className="relative">
       <input value={q} onChange={(e) => { setQ(e.target.value); onPick(null); }}
-        placeholder={t("city or town of birth")}
+        placeholder={t("city or town of birth")} autoCapitalize="words"
         className="w-full bg-transparent border-b border-[#b3b3b3]/40 focus:border-white outline-none text-lg py-2 font-serif-i" />
       {results.length > 0 && !value && (
         <div className="absolute z-10 left-0 right-0 mt-2 bg-[#1f1f1f] border border-[#444] rounded-xl overflow-hidden">

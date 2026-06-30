@@ -115,6 +115,10 @@ export default function Page() {
     );
   } else if (view.kind === "surprise") {
     content = <SurpriseMe profile={profile} onBack={() => setView({ kind: "tab", tab: "home" })} />;
+  } else if (view.kind === "tab" && view.tab === "asknow") {
+    // Ask Now is a focused, pushed screen: top-left back arrow, NO bottom nav
+    // (spec 13.10 — "No bottom navigation" + the back-arrow rule).
+    content = <AskNow profile={profile} onBack={() => setView({ kind: "tab", tab: "home" })} />;
   } else if (view.kind === "edit") {
     content = (
       <ProfileEdit
@@ -141,7 +145,6 @@ export default function Page() {
             onProfile={() => setView({ kind: "tab", tab: "profile" })}
           />
         )}
-        {tab === "asknow" && <AskNow profile={profile} />}
         {tab === "history" && (
           <History
             onOpen={(s) => setView({ kind: "session", category: s.category, existing: s })}

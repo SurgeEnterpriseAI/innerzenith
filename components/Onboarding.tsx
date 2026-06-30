@@ -178,6 +178,7 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && next()}
             placeholder={t("your first name")}
+            autoCapitalize="words"
             className="input-underline text-[15px] font-light py-2 text-white placeholder:text-[#b3b3b3]"
           />
         )}
@@ -262,6 +263,7 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
                   type="email"
                   inputMode="email"
                   autoComplete="email"
+                  autoCapitalize="none"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t("your email — optional")}
@@ -407,6 +409,7 @@ function CityPicker({
           onPick(null);
         }}
         placeholder={placeholder}
+        autoCapitalize="words"
         className="input-underline w-full text-[15px] font-light py-2 text-white placeholder:text-[#b3b3b3]"
       />
       {open && results.length > 0 && !value && (

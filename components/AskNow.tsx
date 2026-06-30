@@ -29,7 +29,7 @@ const SAMPLE = "Will I get this opportunity? The question came to me on 18 Jun 2
 const DISCLAIMER =
   "Ask Now reads the moment your question crystallised. It works only when the question arrived on its own — the time and city you were in when it did.";
 
-export default function AskNow({ profile }: { profile: Profile }) {
+export default function AskNow({ profile, onBack }: { profile: Profile; onBack: () => void }) {
   const { t } = useT();
   const lang = profile.language ?? null;
   const rtl = Boolean(languageByCode(lang)?.rtl);
@@ -131,10 +131,18 @@ export default function AskNow({ profile }: { profile: Profile }) {
   const firstUserIdx = messages.findIndex((m) => m.role === "user");
 
   return (
-    <div className="min-h-[100dvh] bg-[#0D0D0D] text-white flex flex-col pb-20">
-      {/* top bar — 'Ask Now' centred in Cormorant Italic 18px (spec 13.10). No
-          back arrow: this is a bottom-nav tab, not a pushed screen. */}
-      <header className="flex items-center justify-center px-6 py-4 shrink-0">
+    <div className="min-h-[100dvh] bg-[#0D0D0D] text-white flex flex-col">
+      {/* top bar — back arrow left + 'Ask Now' centred in Cormorant 18px. Ask Now
+          is a focused pushed screen: a back arrow, and NO bottom navigation
+          (spec 13.10 / 2205 / 2257). */}
+      <header className="relative flex items-center justify-center px-6 py-4 shrink-0">
+        <button
+          onClick={onBack}
+          aria-label={t("Back")}
+          className="absolute left-5 text-[#d4d4d4] hover:text-white text-2xl leading-none"
+        >
+          ‹
+        </button>
         <h1 className="font-serif-r text-[18px]">{t("Ask Now")}</h1>
       </header>
 
@@ -231,6 +239,7 @@ export default function AskNow({ profile }: { profile: Profile }) {
             rows={1}
             placeholder={t("Share what's true to you.")}
             disabled={streaming}
+            autoCapitalize="sentences"
             className="flex-1 bg-transparent outline-none text-[13px] font-light text-white placeholder:text-[#b3b3b3] py-1.5 disabled:opacity-50"
           />
           <button

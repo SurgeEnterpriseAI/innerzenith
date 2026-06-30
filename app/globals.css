@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Inter:wght@300;400;500&display=swap');
+/* Fonts are loaded + preloaded via next/font in app/layout.tsx (self-hosted,
+   no external request, no FOUT). They surface here as --font-inter and
+   --font-cormorant. */
 
 @tailwind base;
 @tailwind components;
@@ -22,7 +24,7 @@ html, body {
 
 /* Inter Light is the functional default (spec 13.2). */
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-inter), 'Inter', system-ui, sans-serif;
   font-weight: 300;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -30,20 +32,20 @@ body {
 
 /* Cormorant Garamond italic — identity, page headings, reflective lines. */
 .font-serif-i {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: var(--font-cormorant), 'Cormorant Garamond', Georgia, serif;
   font-style: italic;
 }
 
 /* Cormorant Garamond Regular — top-bar screen titles (spec 13.2 weight rule).
    A dedicated class so it is never overridden by .font-serif-i's italic. */
 .font-serif-r {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: var(--font-cormorant), 'Cormorant Garamond', Georgia, serif;
   font-style: normal;
 }
 
 /* Body prose — Inter Light 300, 15px, line-height 1.9, #FFFFFF (spec 13.2/13.7). */
 .advisor-text {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-inter), 'Inter', system-ui, sans-serif;
   font-weight: 300;
   font-size: 15px;
   line-height: 1.9;
@@ -54,7 +56,7 @@ body {
 /* Section header — Cormorant Garamond Italic Uppercase 11px, letter-spacing 2px,
    #D4D4D4 (spec 13.7). */
 .section-header {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: var(--font-cormorant), 'Cormorant Garamond', Georgia, serif;
   font-style: italic;
   text-transform: uppercase;
   font-size: 11px;
@@ -78,6 +80,16 @@ body {
   object-fit: contain;
   margin: 0 0 14px 18px;
   shape-outside: circle(50%);
+}
+
+/* Form controls don't inherit font-family by default — left alone they fall back
+   to the OS sans (Roboto / San Francisco). Force them to follow their context
+   (Inter Light on the black canvas) so the city autocomplete's committed value
+   and its suggestion rows render in Inter, not a leaked system font (spec 13.2).
+   Set declaratively here — applied at first paint, no post-mount flash. Elements
+   that carry .font-serif-i / .font-serif-r still win by class specificity. */
+input, textarea, select, button {
+  font-family: inherit;
 }
 
 /* Input underline only — no border, outline, or fill (spec 13.3). 40% opacity. */

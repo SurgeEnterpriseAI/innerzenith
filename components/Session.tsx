@@ -1,8 +1,8 @@
 "use client";
 
 // A conversation screen (spec 13.7/13.8). Handles natal categories AND Ask Now.
-// First-visit category readings render in four labelled sections with a single
-// inline illustration floated between the first two; return visits and follow-ups
+// First-visit category readings render in three labelled sections with a single
+// inline illustration floated into the second; return visits and follow-ups
 // render as flowing prose. No bubbles, no cards — text sits on the black canvas.
 
 import { useEffect, useRef, useState } from "react";
@@ -20,6 +20,7 @@ import { resolveGlyph, stripLeadingGlyph, symbolSrc } from "@/lib/symbols";
 import { languageByCode } from "@/lib/languages";
 import { useT } from "@/lib/i18n";
 import ReadAloud from "./ReadAloud";
+import FormingScreen from "./FormingScreen";
 
 // The four first-visit section labels (spec 11.3 / 13.7). Matched case-insensitively
 // so the producer's plain-text labels render as styled section headers.
@@ -57,6 +58,9 @@ export default function Session({
   const [streaming, setStreaming] = useState(false);
   const [buffer, setBuffer] = useState("");
   const [symbol, setSymbol] = useState<string | null>(existing?.symbol ?? null);
+  // True only while a genuine first reading on this topic is being drawn — gates
+  // the §13.6 "Connecting your dots." forming screen during the opening wait.
+  const [firstReadOpening, setFirstReadOpening] = useState(false);
 
   const sessionRef = useRef<Sess | null>(existing ?? null);
   const symbolRef = useRef<string | null>(existing?.symbol ?? null);
@@ -80,6 +84,7 @@ export default function Session({
       : topicSeen(category, profile.chart_computed_at)
       ? "__begin_returning__"
       : "__begin_first__";
+    if (sentinel === "__begin_first__") setFirstReadOpening(true);
     void stream([{ role: "user", content: sentinel }], { hideOpening: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -199,6 +204,15 @@ export default function Session({
     ? symbol ?? resolveGlyph(messages[firstAssistantIdx].content, category)
     : null;
 
+  // Category FIRST reading: while we wait for the opening words to arrive, take
+  // over with the §13.6 forming screen ("Connecting your dots.") instead of the
+  // inline lowercase loader. Once the first token streams in (buffer fills) we
+  // drop into the normal reading view. Never shown for return visits, Ask Now,
+  // or follow-ups (messages already has content by then).
+  if (firstReadOpening && !isAskNow && streaming && !buffer && messages.length === 0) {
+    return <FormingScreen />;
+  }
+
   return (
     <div className="flex flex-col h-[100dvh] bg-[#0D0D0D] text-white">
       {/* top bar — back arrow + centred Cormorant title (spec 13.7) */}
@@ -253,6 +267,7 @@ export default function Session({
             rows={1}
             placeholder={t("Share what's true to you.")}
             disabled={streaming}
+            autoCapitalize="sentences"
             className="flex-1 bg-transparent outline-none text-[13px] font-light text-white placeholder:text-[#b3b3b3] py-1.5 disabled:opacity-50"
           />
           <button

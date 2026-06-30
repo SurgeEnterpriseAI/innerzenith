@@ -26,7 +26,6 @@ import ReadAloud from "./ReadAloud";
 const SECTION_LABELS = [
   "the picture so far",
   "where your dots sit now",
-  "the line forming",
   "your next dot",
 ];
 const isSectionHeader = (s: string) =>

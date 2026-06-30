@@ -339,7 +339,7 @@ export async function POST(req: NextRequest) {
       return {
         role: "user" as const,
         content:
-          "This is the user's FIRST time on this topic. Follow FIRST TIME ON A TOPIC (11.3) — THE FOUR DOTS exactly. Use the four named movements (The picture so far / Where your dots sit now / The line forming / Your next dot) as plain-text labels. LEAD WITH THE LOUDEST SIGNAL from the chart context above — open on the single strongest, most specific thing about this person for this topic, then the 2-3 next-loudest threads only. This is a tight, chart-grounded portrait (~350-500 words), NOT a survey of every dimension. Obey the ONE-PASS RULE: each theme appears exactly once, never restated later. End with the exact blueprint transition sentence.",
+          "This is the user's FIRST time on this topic. Follow FIRST TIME ON A TOPIC (11.3) — THE THREE DOTS exactly. Use the three named movements (The picture so far / Where your dots sit now / Your next dot) as plain-text labels — 'The picture so far' carries the full blueprint including how they function (what energises, what drains). LEAD WITH THE LOUDEST SIGNAL from the chart context above — open on the single strongest, most specific thing about this person for this topic, then the 2-3 next-loudest threads only. This is a tight, chart-grounded portrait (~350-500 words), NOT a survey of every dimension. Obey the ONE-PASS RULE: each factor appears in exactly one sentence, never restated later. End with the exact blueprint transition sentence.",
       };
     }
     if (m.content === "__begin_returning__") {

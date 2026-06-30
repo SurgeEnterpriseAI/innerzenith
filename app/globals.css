@@ -136,6 +136,34 @@ input, textarea, select, button {
 }
 .fade-up { animation: fade-up 0.45s ease-out both; }
 
+/* §13.6 forming / loading figure (Pankhuri 2026-06-30). Dots stay lit while the
+   figure draws itself, holds complete, then resets to dots and redraws — looping
+   while a calculation runs. pathLength=1 normalises the path so one dashoffset
+   sweep (1 → 0) draws the whole figure regardless of its real length. */
+.forming-dot {
+  fill: #fff;
+  filter: drop-shadow(0 0 2.4px rgba(255, 255, 255, 0.85));
+}
+.forming-fig {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 0.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 1.4px rgba(255, 255, 255, 0.5));
+  stroke-dasharray: 1;
+  animation: forming-draw 4.2s ease-in-out infinite;
+}
+@keyframes forming-draw {
+  0%   { stroke-dashoffset: 1; }  /* dots only */
+  42%  { stroke-dashoffset: 0; }  /* figure complete */
+  72%  { stroke-dashoffset: 0; }  /* hold */
+  100% { stroke-dashoffset: 1; }  /* reset back to dots */
+}
+@media (prefers-reduced-motion: reduce) {
+  .forming-fig { animation: none; stroke-dashoffset: 0; }
+}
+
 /* scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }

@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { Profile, deriveFidelity, saveProfile } from "@/lib/profile";
 import { useT } from "@/lib/i18n";
 import TimeInput from "./TimeInput";
+import FormingScreen from "./FormingScreen";
 
 type GeoPick = { name: string; country: string | null; latitude: number; longitude: number; timezone: string | null };
 
@@ -80,13 +81,8 @@ export default function ProfileEdit({
     onSaved(finalP);
   }
 
-  if (saving) {
-    return (
-      <div className="min-h-[100dvh] bg-[#0D0D0D] text-white flex items-center justify-center">
-        <p className="font-serif-i text-[#d4d4d4]">{t("Reconnecting your dots…")}</p>
-      </div>
-    );
-  }
+  // Recompute wait — same §13.6 forming screen, looping a random library figure.
+  if (saving) return <FormingScreen label="Reconnecting your dots." />;
 
   return (
     <div className="min-h-[100dvh] bg-[#0D0D0D] text-white px-6 py-10 pb-28">

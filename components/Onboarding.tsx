@@ -12,6 +12,7 @@ import {
   saveProfile,
 } from "@/lib/profile";
 import TimeInput from "./TimeInput";
+import FormingScreen from "./FormingScreen";
 import { syncConfigured, sendMagicLink } from "@/lib/sync";
 import { useT } from "@/lib/i18n";
 
@@ -147,7 +148,9 @@ export default function Onboarding({ onComplete }: { onComplete: (p: Profile) =>
     onComplete(finalP);
   }
 
-  if (connecting) return <ConnectingScreen shape={shapeRef.current} />;
+  // Calculation wait (chart computing) — the §13.6 forming screen loops a random
+  // figure from the shape library, NOT the user's onboarding shape (Pankhuri).
+  if (connecting) return <FormingScreen />;
 
   const s = STEPS[step];
 
@@ -329,16 +332,6 @@ function FormingShape({ shape, litCount }: { shape: { dots: [number, number][] }
         />
       ))}
     </svg>
-  );
-}
-
-function ConnectingScreen({ shape }: { shape: { dots: [number, number][] } }) {
-  const { t } = useT();
-  return (
-    <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[#0D0D0D] text-white">
-      <FormingShape shape={shape} litCount={shape.dots.length} />
-      <p className="font-serif-i text-[20px] mt-12 text-white fade-up">{t("Connecting your dots.")}</p>
-    </div>
   );
 }
 

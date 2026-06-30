@@ -12,6 +12,7 @@ import { resolveGlyph, stripLeadingGlyph, symbolSrc } from "@/lib/symbols";
 import { languageByCode } from "@/lib/languages";
 import { useT } from "@/lib/i18n";
 import ReadAloud from "./ReadAloud";
+import FormingScreen from "./FormingScreen";
 
 export default function SurpriseMe({
   profile,
@@ -78,6 +79,10 @@ export default function SurpriseMe({
       setStreaming(false);
     }
   }
+
+  // First-open generation wait — the §13.6 forming screen loops a random library
+  // figure until today's reading begins to stream.
+  if (streaming && !text) return <FormingScreen />;
 
   return (
     <div className="flex flex-col h-[100dvh] bg-[#0D0D0D] text-white">

@@ -1,60 +1,37 @@
 "use client";
 
-// Spec 13.6 — the "forming" screen. A constellation draws itself and the line
-// "Connecting your dots." sits beneath it. Shown while the FIRST reading on a
-// topic is being drawn (and after onboarding while the chart computes). The
-// default shape is the butterfly (spec 13.6).
+// Spec 13.6 — the "forming" / loading screen (Pankhuri, 2026-06-30). Whenever the
+// app makes the user wait while a calculation runs, it picks ONE shape at random
+// from the dot-shape library and loops its draw: seven dots glow, smooth lines
+// connect them into the figure, the complete figure holds, then it resets back to
+// dots and redraws — looping until the wait ends. "Connecting your dots." sits
+// beneath. One shape is chosen per mount and loops (it does not switch mid-wait).
 
+import { useState } from "react";
 import { useT } from "@/lib/i18n";
+import { ConstellationShape, randomShape } from "@/lib/shapes";
 
-const BUTTERFLY: [number, number][] = [
-  [50, 18], [34, 30], [30, 48], [50, 40], [70, 30], [66, 48], [50, 62],
-];
-
-/** A constellation: dashed lines between lit dots, dots glowing white. */
-export function FormingShape({
-  dots,
-  litCount,
+export default function FormingScreen({
+  shape,
+  label,
 }: {
-  dots: [number, number][];
-  litCount: number;
+  shape?: ConstellationShape;
+  label?: string;
 }) {
-  return (
-    <svg viewBox="0 0 100 80" className="w-44 h-36">
-      {dots.slice(0, litCount).map((d, i) => {
-        if (i === 0) return null;
-        const prev = dots[i - 1];
-        return (
-          <line
-            key={`l${i}`}
-            x1={prev[0]} y1={prev[1]} x2={d[0]} y2={d[1]}
-            stroke="#b3b3b3" strokeWidth={0.4} strokeDasharray="1.4 1.4" opacity={0.6}
-          />
-        );
-      })}
-      {dots.map((d, i) => (
-        <circle
-          key={`d${i}`}
-          cx={d[0]} cy={d[1]}
-          r={1.6}
-          fill={i < litCount ? "#ffffff" : "#b3b3b3"}
-          className={i < litCount ? "dot-lit" : ""}
-          style={i < litCount ? { filter: "drop-shadow(0 0 2px rgba(255,255,255,0.7))" } : undefined}
-        />
-      ))}
-    </svg>
-  );
-}
-
-export default function FormingScreen({ dots = BUTTERFLY }: { dots?: [number, number][] }) {
   const { t } = useT();
+  // Locked once per mount so the figure stays put and just loops its draw.
+  const [pick] = useState<ConstellationShape>(() => shape ?? randomShape());
+
   return (
     <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[#0D0D0D] text-white">
-      <div className="dot-breathe">
-        <FormingShape dots={dots} litCount={dots.length} />
-      </div>
-      <p className="font-serif-i text-[20px] mt-12 text-white fade-up">
-        {t("Connecting your dots.")}
+      <svg viewBox="0 0 100 100" className="w-44 h-44" aria-hidden>
+        <path className="forming-fig" pathLength={1} d={pick.path} />
+        {pick.dots.map(([x, y], i) => (
+          <circle key={i} className="forming-dot" cx={x} cy={y} r={1.7} />
+        ))}
+      </svg>
+      <p className="font-serif-i text-[20px] mt-10 text-white fade-up">
+        {t(label ?? "Connecting your dots.")}
       </p>
     </div>
   );
